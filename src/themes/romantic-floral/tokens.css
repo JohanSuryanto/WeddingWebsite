@@ -1,0 +1,65 @@
+[data-theme='romantic-floral'] {
+  --theme-bg: #fff8f6;
+  --theme-surface: #ffffff;
+  --theme-surface-alt: #f8e1e4;
+  --theme-primary: #d8a7b1;
+  --theme-primary-contrast: #4a3440;
+  --theme-accent: #c9a66b;
+  --theme-highlight: #f2d9de;
+  --theme-highlight-text: #4a3440;
+  --theme-text: #4a3440;
+  --theme-text-muted: #86606f;
+  --theme-font-script: 'Great Vibes', cursive;
+  --theme-font-heading: 'Cormorant Garamond', Georgia, serif;
+  --theme-font-body: 'Lato', system-ui, sans-serif;
+  --theme-radius-card: 1.25rem;
+  --theme-shadow-card: 0 10px 30px -12px rgb(158 122 140 / 0.35);
+  --theme-anim-reveal: float-up;
+}
+
+@keyframes float-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes petal-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(var(--drift, 40px), 110vh, 0) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme='romantic-floral'] .reveal {
+    opacity: 0;
+  }
+  [data-theme='romantic-floral'] .reveal.is-visible {
+    animation: var(--theme-anim-reveal) 0.9s ease-out both;
+  }
+  [data-theme='romantic-floral'] .ornament-sway {
+    animation: sway 6s ease-in-out infinite;
+  }
+}
