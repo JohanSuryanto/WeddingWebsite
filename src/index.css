@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+
+/* Map theme tokens (defined per theme under [data-theme]) to Tailwind utilities. */
+@theme inline {
+  --color-bg: var(--theme-bg);
+  --color-surface: var(--theme-surface);
+  --color-surface-alt: var(--theme-surface-alt);
+  --color-primary: var(--theme-primary);
+  --color-primary-contrast: var(--theme-primary-contrast);
+  --color-accent: var(--theme-accent);
+  --color-highlight: var(--theme-highlight);
+  --color-highlight-text: var(--theme-highlight-text);
+  --color-text: var(--theme-text);
+  --color-muted: var(--theme-text-muted);
+  --font-script: var(--theme-font-script);
+  --font-heading: var(--theme-font-heading);
+  --font-body: var(--theme-font-body);
+  --radius-card: var(--theme-radius-card);
+  --shadow-card: var(--theme-shadow-card);
+}
+
+@layer base {
+  html {
+    overflow-x: hidden;
+    /* clip (where supported) blocks sideways scroll without breaking position: sticky */
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+  body {
+    margin: 0;
+    overflow-x: hidden;
+    /* clip (where supported) blocks sideways scroll without breaking position: sticky */
+    overflow-x: clip;
+    background: var(--theme-bg);
+    color: var(--theme-text);
+    font-family: var(--theme-font-body);
+    line-height: 1.6;
+    font-variant-numeric: lining-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--theme-font-heading);
+    font-weight: 600;
+  }
+  section[id] {
+    scroll-margin-top: 4.5rem;
+  }
+  :focus-visible {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background: var(--theme-primary);
+    color: var(--theme-primary-contrast);
+    padding: 0.625rem 1.5rem;
+    font-weight: 700;
+    box-shadow: var(--theme-shadow-card);
+    transition:
+      transform 0.2s,
+      filter 0.2s;
+  }
+  .btn-primary:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled {
+    opacity: 0.6;
+    transform: none;
+    cursor: not-allowed;
+  }
+  .btn-outline {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1.5px solid var(--theme-primary);
+    color: var(--theme-text);
+    padding: 0.5rem 1.25rem;
+    font-weight: 700;
+    background: var(--theme-surface);
+    transition: background 0.2s;
+  }
+  .btn-outline:hover {
+    background: var(--theme-surface-alt);
+  }
+  .card {
+    background: var(--theme-surface);
+    border-radius: var(--theme-radius-card);
+    box-shadow: var(--theme-shadow-card);
+  }
+  .field {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--theme-primary) 60%, white);
+    background: var(--theme-surface);
+    padding: 0.625rem 0.875rem;
+    color: var(--theme-text);
+  }
+  .field:focus {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: 1px;
+  }
+  .field[aria-invalid='true'] {
+    border-color: #b4435a;
+  }
+  .field-error {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: #a33a50;
+  }
+}

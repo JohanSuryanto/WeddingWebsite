@@ -1,0 +1,91 @@
+[data-theme='rustic-garden'] {
+  --theme-bg: #f7f3ea;
+  --theme-surface: #fffdf8;
+  --theme-surface-alt: #e9efe3;
+  --theme-primary: #5f7152;
+  --theme-primary-contrast: #ffffff;
+  --theme-accent: #a47148;
+  --theme-highlight: #dde6d3;
+  --theme-highlight-text: #3e4a35;
+  --theme-text: #4a3f35;
+  --theme-text-muted: #6e6456;
+  --theme-font-script: 'Alex Brush', cursive;
+  --theme-font-heading: 'Josefin Sans', system-ui, sans-serif;
+  --theme-font-body: 'Lora', Georgia, serif;
+  --theme-radius-card: 0.75rem;
+  --theme-shadow-card: 0 12px 28px -16px rgb(74 63 53 / 0.35);
+  --theme-anim-reveal: rg-grow;
+
+  /* Subtle kraft-paper grain, drawn with SVG noise (no image download). */
+  --rg-paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.36 0 0 0 0 0.25 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+[data-theme='rustic-garden'] section,
+[data-theme='rustic-garden'] [role='dialog'] {
+  background-image: var(--rg-paper);
+}
+
+/* Josefin Sans headings read best spaced out; keep them light and airy. */
+[data-theme='rustic-garden'] h2,
+[data-theme='rustic-garden'] h3 {
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+/* Dashed stitched edge on cards, like a hand-made tag. */
+[data-theme='rustic-garden'] .card {
+  outline: 1px dashed rgb(164 113 72 / 0.35);
+  outline-offset: -8px;
+}
+
+@keyframes rg-grow {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes rg-leaf-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(calc(var(--drift, 40px) * -0.6), 50vh, 0) rotate(160deg);
+  }
+  100% {
+    transform: translate3d(var(--drift, 40px), 110vh, 0) rotate(320deg);
+    opacity: 0;
+  }
+}
+
+@keyframes rg-sway {
+  0%,
+  100% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1.5deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme='rustic-garden'] .reveal {
+    opacity: 0;
+  }
+  [data-theme='rustic-garden'] .reveal.is-visible {
+    animation: var(--theme-anim-reveal) 1s ease-out both;
+  }
+  [data-theme='rustic-garden'] .rg-sway {
+    animation: rg-sway 7s ease-in-out infinite;
+  }
+}
