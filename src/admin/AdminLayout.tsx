@@ -1,21 +1,24 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import { NavLink, Outlet } from 'react-router'
 import { useAuth } from './auth/AuthProvider'
+import { ReloginDialog } from './auth/ReloginDialog'
+
+/** The "Cadangan" page (US6, US7). */
+export const BACKUP_ENABLED = true
 
 const links = [
   { to: '/', label: 'Pasangan', end: true },
-  { to: '/backup', label: 'Cadangan', end: false },
+  ...(BACKUP_ENABLED ? [{ to: '/backup', label: 'Cadangan', end: false }] : []),
 ]
 
-/** Header, preview-phase banner and page outlet for every logged-in page. */
+/** Header and page outlet for every logged-in page. */
 export function AdminLayout() {
   const { session, logout } = useAuth()
-  const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
   async function onLogout() {
+    // Clearing the session makes the route guard go to /login.
     await logout()
-    navigate('/login', { replace: true })
   }
 
   const navLinks = links.map((l) => (
@@ -81,14 +84,10 @@ export function AdminLayout() {
         )}
       </header>
 
-      <div role="note" className="bg-highlight px-4 py-2 text-center text-sm text-highlight-text">
-        <strong>Mode pratinjau:</strong> data hanya tersimpan di browser ini dan belum tampil di
-        website publik. Rutin unduh cadangan.
-      </div>
-
       <main className="mx-auto max-w-6xl px-4 py-6 md:py-8">
         <Outlet />
       </main>
+      <ReloginDialog />
     </div>
   )
 }

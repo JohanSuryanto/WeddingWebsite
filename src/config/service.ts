@@ -27,6 +27,18 @@ export const service = {
   ],
 } as const
 
+/**
+ * Message the admin copies for a couple (FR-010a): their send-invitation page and passcode.
+ * {names}, {url} and {passcode} are filled in.
+ */
+export const passcodeMessageTemplate = `Halo {names}! Halaman kirim undangan Anda:
+{url}
+Kode akses: {passcode}`
+
+export function passcodeMessage(names: string, url: string, passcode: string): string {
+  return passcodeMessageTemplate.replace('{names}', names).replace('{url}', url).replace('{passcode}', passcode)
+}
+
 export function whatsappContactUrl(): string {
   return `https://wa.me/${service.whatsappNumber}?text=${encodeURIComponent(service.whatsappMessage)}`
 }

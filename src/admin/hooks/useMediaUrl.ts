@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { mediaStore } from '../../data/index.admin'
 import { isMediaRef, mediaId } from '../../data/resolveMedia'
 
-/** Displayable URL for a src that may be a media: ref (object URL revoked on change). */
+/** Displayable URL for a src that may be a media: ref: delivery URL, or a downloaded copy. */
 export function useMediaUrl(src: string | null | undefined, known?: ReadonlyMap<string, string>) {
   const [resolved, setResolved] = useState<{ src: string; url: string } | null>(null)
 
   useEffect(() => {
-    if (!src || !isMediaRef(src) || known?.has(mediaId(src))) return
+    if (!src || !isMediaRef(src) || known?.has(mediaId(src)) || mediaStore.urlOf(mediaId(src))) return
     let url: string | null = null
     let cancelled = false
     mediaStore.getBlob(mediaId(src)).then((blob) => {
@@ -23,5 +23,7 @@ export function useMediaUrl(src: string | null | undefined, known?: ReadonlyMap<
 
   if (!src) return null
   if (!isMediaRef(src)) return src
-  return known?.get(mediaId(src)) ?? (resolved?.src === src ? resolved.url : null)
+  return (
+    known?.get(mediaId(src)) ?? mediaStore.urlOf(mediaId(src)) ?? (resolved?.src === src ? resolved.url : null)
+  )
 }

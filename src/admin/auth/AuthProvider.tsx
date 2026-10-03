@@ -1,13 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { LocalAuthService } from './LocalAuthService'
+import { HttpAuthService } from './HttpAuthService'
 import type { AdminSession, AuthService } from './types'
 
-/** Swap point for the backend phase: replace with an HttpAuthService. */
+/** Server-checked login (contracts/auth.md). */
 // eslint-disable-next-line react-refresh/only-export-components
-export const authService: AuthService = new LocalAuthService({
-  email: import.meta.env.VITE_ADMIN_EMAIL,
-  passwordHash: import.meta.env.VITE_ADMIN_PASSWORD_SHA256,
-})
+export const authService = new HttpAuthService() satisfies AuthService
 
 interface AuthContextValue {
   session: AdminSession | null
@@ -19,7 +16,20 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState(() => authService.current())
-  useEffect(() => authService.subscribe(setSession), [])
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const off = authService.subscribe(setSession)
+    authService.init().then(() => setReady(true))
+    return off
+  }, [])
+  // Wait for the server's answer before any route decides login vs dashboard.
+  if (!ready) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center" role="status" aria-live="polite">
+        <p className="text-muted">Memuat…</p>
+      </div>
+    )
+  }
   return (
     <AuthContext.Provider
       value={{

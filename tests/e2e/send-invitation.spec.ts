@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { openSendInvitation } from './helpers'
 
 test('/anisa-raka/send-invitation builds per-guest links that open the right invitation', async ({
   page,
@@ -8,7 +9,7 @@ test('/anisa-raka/send-invitation builds per-guest links that open the right inv
   if (browserName === 'chromium') {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   }
-  await page.goto('/anisa-raka/send-invitation')
+  await openSendInvitation(page)
   await expect(page.getByRole('heading', { name: 'Buat Link Undangan' })).toBeVisible()
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/)
 
@@ -56,7 +57,7 @@ test('/anisa-raka/send-invitation builds per-guest links that open the right inv
 })
 
 test('/anisa-raka/send-invitation has no horizontal overflow', async ({ page }) => {
-  await page.goto('/anisa-raka/send-invitation')
+  await openSendInvitation(page)
   await page
     .getByLabel('Satu nama per baris')
     .fill('Keluarga Besar Bapak H. Muhammad Abdullah Syarifuddin dan Ibu Hj. Siti Aminah\nBudi')

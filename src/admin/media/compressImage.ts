@@ -1,3 +1,5 @@
+import { MAX_UPLOAD_BYTES } from '../../data/mediaLimits'
+
 /** Longest side (px) per kind of photo (research R7). */
 export const PRESETS = {
   cover: 1600,
@@ -8,7 +10,7 @@ export const PRESETS = {
 } as const
 export type ImagePreset = keyof typeof PRESETS
 
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+export { MAX_UPLOAD_BYTES }
 
 /** Size that fits within `max` on the longest side, never enlarging. */
 export function fitWithin(width: number, height: number, max: number) {

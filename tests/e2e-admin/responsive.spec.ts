@@ -11,6 +11,7 @@ const TABS = [
   'penutup',
   'pesan',
   'pengaturan',
+  'respons',
 ]
 // SC-006: besides this project's own width, check the other required widths too.
 const WIDTHS = [320, 768, 1920]

@@ -1,6 +1,6 @@
 import { Controller, useFieldArray, useFormContext } from 'react-hook-form'
 import { fromIsoWithOffset, TIMEZONES, toIsoWithOffset } from '../../../data/dates'
-import { newId } from '../../../data/indexeddb/db'
+import { newId } from '../../../data/ids'
 import type { CoupleFormValues } from '../formModel'
 import { FieldShell, ItemControls, Section, TextField, useFieldError } from '../fields'
 

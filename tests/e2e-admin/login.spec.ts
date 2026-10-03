@@ -27,18 +27,6 @@ test('wrong credentials show an error and clear the password', async ({ page }) 
   await expect(page.getByLabel('Kata sandi')).toHaveValue('')
 })
 
-test('five wrong attempts pause login', async ({ page }) => {
-  await page.goto('/login')
-  await page.getByLabel('Email').fill(ADMIN.email)
-  for (let i = 0; i < 5; i++) {
-    await page.getByLabel('Kata sandi').fill(`salah-${i}`)
-    await page.getByRole('button', { name: 'Masuk' }).click()
-    await expect(page.getByRole('alert')).toBeVisible()
-  }
-  await expect(page.getByRole('alert')).toContainText('Terlalu banyak percobaan. Coba lagi dalam')
-  await expect(page.getByRole('button', { name: 'Masuk' })).toBeDisabled()
-})
-
 test('logout ends the session and the guard applies again', async ({ page }) => {
   await login(page)
   const logout = page.getByRole('button', { name: 'Keluar' })

@@ -1,4 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
+import { SessionExpiredError } from '../../data/types'
+import { waitForRelogin } from '../auth/relogin'
+
+/** Runs the loader; if the session ended, waits for the re-login dialog and tries once more. */
+async function loadWithRelogin<T>(loader: () => Promise<T>): Promise<T> {
+  try {
+    return await loader()
+  } catch (err) {
+    if (!(err instanceof SessionExpiredError)) throw err
+    await waitForRelogin()
+    return loader()
+  }
+}
 
 export type LoadState<T> =
   { status: 'loading' } | { status: 'error'; error: Error } | { status: 'ready'; data: T }
@@ -19,7 +32,7 @@ export function useLoad<T>(loader: () => Promise<T>, key: string) {
 
   useEffect(() => {
     let cancelled = false
-    loaderRef.current().then(
+    loadWithRelogin(loaderRef.current).then(
       (data) => !cancelled && setResult({ key, tick, state: { status: 'ready', data } }),
       (error: Error) => !cancelled && setResult({ key, tick, state: { status: 'error', error } }),
     )

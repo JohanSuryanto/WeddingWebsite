@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { WeddingContent } from '../../content/types'
+import { PASSCODE_PATTERN } from '../../data/passcode'
 import { slugSchema, themeIdSchema, weddingContentSchema } from '../../data/schema'
 import type { ThemeId } from '../../themes/types'
 
@@ -7,12 +8,15 @@ export interface CoupleFormValues {
   content: WeddingContent
   slug: string
   defaultTheme: ThemeId
+  /** Send-invitation passcode (FR-010a). */
+  passcode: string
 }
 
 export const coupleFormSchema = z.object({
   content: weddingContentSchema,
   slug: slugSchema,
   defaultTheme: themeIdSchema,
+  passcode: z.string().regex(PASSCODE_PATTERN, 'Kode akses harus 4 angka'),
 })
 
 export const TABS = [
@@ -25,6 +29,7 @@ export const TABS = [
   { id: 'penutup', label: 'Penutup' },
   { id: 'pesan', label: 'Pesan' },
   { id: 'pengaturan', label: 'Pengaturan' },
+  { id: 'respons', label: 'Respons' },
 ] as const
 
 export type TabId = (typeof TABS)[number]['id']
@@ -36,7 +41,7 @@ export function isTabId(value: string | undefined): value is TabId {
 /** Which editor tab shows the field at a form path (e.g. "content.events.0.end"). */
 export function tabOfPath(path: string): TabId {
   const p = path.replace(/^content\./, '')
-  if (p === 'slug' || p === 'defaultTheme') return 'pengaturan'
+  if (p === 'slug' || p === 'defaultTheme' || p === 'passcode') return 'pengaturan'
   if (
     p.startsWith('cover.background') ||
     /^couple\.(bride|groom)\.photo/.test(p) ||

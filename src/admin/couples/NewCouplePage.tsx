@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { FormField } from '../../components/FormField'
 import { coupleUrl } from '../../config/site'
 import { emptyContent } from '../../data/emptyContent'
+import { isValidPasscode, randomPasscode } from '../../data/passcode'
 import { coupleRepository, ready } from '../../data/index.admin'
 import { slugify, toSlug, validateSlug } from '../../data/slug'
 import { SlugTakenError } from '../../data/types'
@@ -16,6 +17,7 @@ export function NewCouplePage() {
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
   const [theme, setTheme] = useState<ThemeId>('romantic-floral')
+  const [passcode, setPasscode] = useState(randomPasscode)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
 
@@ -30,6 +32,7 @@ export function NewCouplePage() {
     const next: Record<string, string> = {}
     if (!bride.trim()) next.bride = 'Nama panggilan wajib diisi'
     if (!groom.trim()) next.groom = 'Nama panggilan wajib diisi'
+    if (!isValidPasscode(passcode)) next.passcode = 'Kode akses harus 4 angka'
     const slugError = validateSlug(effectiveSlug)
     if (slugError) next.slug = slugError
     else {
@@ -47,6 +50,7 @@ export function NewCouplePage() {
         slug: effectiveSlug,
         defaultTheme: theme,
         content: emptyContent(bride, groom),
+        passcode,
       })
       navigate(`/couples/${couple.id}/mempelai`)
     } catch (err) {
@@ -105,6 +109,27 @@ export function NewCouplePage() {
         </FormField>
         <p id="new-slug-hint" className="-mt-3 text-sm break-all text-muted">
           {coupleUrl(effectiveSlug || '…')}
+        </p>
+
+        <FormField id="new-passcode" label="Kode akses halaman kirim undangan" error={errors.passcode}>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              id="new-passcode"
+              className="field w-32 font-mono text-lg tracking-[0.4em]"
+              value={passcode}
+              inputMode="numeric"
+              maxLength={4}
+              onChange={(e) => setPasscode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              aria-invalid={!!errors.passcode}
+              aria-describedby={errors.passcode ? 'new-passcode-error' : 'new-passcode-hint'}
+            />
+            <button type="button" className="btn-outline px-4 py-1 text-sm" onClick={() => setPasscode(randomPasscode())}>
+              Acak
+            </button>
+          </div>
+        </FormField>
+        <p id="new-passcode-hint" className="-mt-3 text-sm text-muted">
+          4 angka. Pasangan memakainya untuk membuka halaman kirim undangan.
         </p>
 
         <fieldset>

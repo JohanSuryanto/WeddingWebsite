@@ -10,16 +10,9 @@ export class InvalidCredentialsError extends Error {
   }
 }
 
-export class LockedOutError extends Error {
-  readonly retryAt: Date
-  constructor(retryAt: Date) {
-    super('Terlalu banyak percobaan.')
-    this.name = 'LockedOutError'
-    this.retryAt = retryAt
-  }
-}
+export { LockedOutError } from '../../data/types'
 
-/** Swap point for the backend phase (contracts/auth.md). */
+/** Swap point (contracts/auth.md); implemented by HttpAuthService. */
 export interface AuthService {
   /** Throws InvalidCredentialsError | LockedOutError. */
   login(email: string, password: string): Promise<AdminSession>
@@ -27,4 +20,6 @@ export interface AuthService {
   /** null when absent or expired. */
   current(): AdminSession | null
   subscribe(listener: (session: AdminSession | null) => void): () => void
+  /** Loads the current session from the server once at startup. */
+  init(): Promise<void>
 }

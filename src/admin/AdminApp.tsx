@@ -3,7 +3,7 @@ import { createBrowserRouter, Navigate, Outlet, RouterProvider, useParams } from
 import { MessagePage } from '../components/MessagePage'
 import { ToastProvider } from '../components/Toast'
 import { ThemeProvider } from '../themes'
-import { AdminLayout } from './AdminLayout'
+import { AdminLayout, BACKUP_ENABLED } from './AdminLayout'
 import { AuthProvider } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
 import { RequireAuth } from './auth/RequireAuth'
@@ -66,14 +66,18 @@ const router = createBrowserRouter([
                   </Lazy>
                 ),
               },
-              {
-                path: '/backup',
-                element: (
-                  <Lazy>
-                    <BackupPage />
-                  </Lazy>
-                ),
-              },
+              ...(BACKUP_ENABLED
+                ? [
+                    {
+                      path: '/backup',
+                      element: (
+                        <Lazy>
+                          <BackupPage />
+                        </Lazy>
+                      ),
+                    },
+                  ]
+                : []),
             ],
           },
           {

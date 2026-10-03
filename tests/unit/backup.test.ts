@@ -1,130 +1,146 @@
 // @vitest-environment node
-import 'fake-indexeddb/auto'
+import { describe, expect, it } from 'vitest'
 import { anisaRaka } from '../../src/content/samples/anisa-raka/content'
 import {
   BackupError,
   backupFileName,
-  createBackup,
+  bundleFor,
   parseBackup,
-  restoreBackup,
+  planKeepBoth,
+  restoredSlug,
 } from '../../src/data/backup'
-import { openAdminDb } from '../../src/data/indexeddb/db'
-import { IndexedDbCoupleRepository } from '../../src/data/indexeddb/IndexedDbCoupleRepository'
-import { IndexedDbMediaStore } from '../../src/data/indexeddb/IndexedDbMediaStore'
-import { mediaRef } from '../../src/data/resolveMedia'
+import { collectMediaRefs, mediaRef } from '../../src/data/resolveMedia'
 
-let n = 0
-function setup() {
-  const db = openAdminDb(`backup-test-${++n}`)
-  const media = new IndexedDbMediaStore(db)
-  return { repo: new IndexedDbCoupleRepository(db, media), media }
-}
+const bytes = new Uint8Array([1, 2, 3, 4, 5, 6])
+const b64 = Buffer.from(bytes).toString('base64')
 
-async function seedTwo() {
-  const { repo, media } = setup()
-  const a = await repo.create({
-    slug: 'satu',
-    defaultTheme: 'rustic-garden',
-    content: structuredClone(anisaRaka),
-  })
-  const bytes = new Uint8Array(70_000).map((_, i) => (i * 31) % 256)
-  const m = await media.put(a.id, new Blob([bytes], { type: 'image/webp' }), {
-    kind: 'image',
-    width: 3,
-    height: 2,
-  })
+function v1File(overrides: Record<string, unknown> = {}) {
   const content = structuredClone(anisaRaka)
-  content.cover.background = { src: mediaRef(m.id), width: 3, height: 2 }
-  await repo.update(a.id, { content }, 1)
-  await repo.create({
-    slug: 'dua',
-    defaultTheme: 'elegant-classic',
-    content: structuredClone(anisaRaka),
-  })
-  return { repo, media, mediaId: m.id, bytes }
+  content.cover.background = { src: mediaRef('m1'), width: 3, height: 2 }
+  return {
+    format: 'wedding-admin-backup',
+    formatVersion: 1,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    couples: [
+      {
+        id: 'c1',
+        slug: 'satu',
+        status: 'active',
+        defaultTheme: 'rustic-garden',
+        content,
+        version: 3,
+        createdAt: '2026-10-01T00:00:00.000Z',
+        updatedAt: '2026-10-01T00:00:00.000Z',
+      },
+    ],
+    media: [
+      {
+        id: 'm1',
+        coupleId: 'c1',
+        kind: 'image',
+        mime: 'image/webp',
+        size: bytes.length,
+        width: 3,
+        height: 2,
+        createdAt: '2026-10-01T00:00:00.000Z',
+        data: b64,
+      },
+    ],
+    ...overrides,
+  }
 }
 
-describe('backup', () => {
-  it('round-trips couples and media exactly (SC-008)', async () => {
-    const src = await seedTwo()
-    const file = await createBackup(src.repo, src.media)
-    const parsed = await parseBackup(file)
-    expect(parsed.couples).toHaveLength(2)
+const asBlob = (doc: unknown) => new Blob([JSON.stringify(doc)], { type: 'application/json' })
 
-    const dst = setup()
-    const result = await restoreBackup(parsed, 'replace', dst.repo)
-    expect(result).toEqual({ restored: 2, skipped: [] })
-
-    for (const s of await src.repo.list()) {
-      const original = await src.repo.get(s.id)
-      const copy = await dst.repo.get(s.id)
-      expect(JSON.parse(JSON.stringify(copy))).toEqual(JSON.parse(JSON.stringify(original)))
-      expect(copy.version).toBe(original.version)
-    }
-    const restored = await dst.media.getBlob(src.mediaId)
-    expect(new Uint8Array(await restored!.arrayBuffer())).toEqual(src.bytes)
+describe('backup parsing', () => {
+  it('reads 002 (v1) files: no passcodes, no responses', async () => {
+    const parsed = await parseBackup(asBlob(v1File()))
+    expect(parsed.formatVersion).toBe(1)
+    expect(parsed.couples[0].passcode).toBeUndefined()
+    expect(parsed.rsvps).toEqual([])
+    expect(parsed.wishes).toEqual([])
+    expect(parsed.totalBytes).toBe(bytes.length)
+    expect(new Uint8Array(await parsed.media[0].blob.arrayBuffer())).toEqual(bytes)
   })
 
-  it('"add" skips couples whose slug already exists', async () => {
-    const src = await seedTwo()
-    const parsed = await parseBackup(await createBackup(src.repo, src.media))
-    const dst = setup()
-    await dst.repo.create({
-      slug: 'satu',
-      defaultTheme: 'rustic-garden',
-      content: structuredClone(anisaRaka),
+  it('reads v2 files with passcodes, RSVPs and wishes', async () => {
+    const doc = v1File({
+      formatVersion: 2,
+      rsvps: [
+        {
+          id: 'r1',
+          coupleId: 'c1',
+          name: 'Pak Andi',
+          attendance: 'hadir',
+          guestCount: 2,
+          submittedAt: '2026-10-02T00:00:00.000Z',
+          updatedAt: '2026-10-02T00:00:00.000Z',
+        },
+      ],
+      wishes: [
+        {
+          id: 'w1',
+          coupleId: 'c1',
+          name: 'Bu Rina',
+          message: 'Selamat ya',
+          attendance: null,
+          hidden: true,
+          createdAt: '2026-10-02T00:00:00.000Z',
+        },
+      ],
     })
-    const result = await restoreBackup(parsed, 'add', dst.repo)
-    expect(result).toEqual({ restored: 1, skipped: ['satu'] })
-    expect((await dst.repo.list()).map((c) => c.slug).sort()).toEqual(['dua', 'satu'])
+    doc.couples[0] = { ...(doc.couples[0] as object), passcode: '0482' } as never
+    const parsed = await parseBackup(asBlob(doc))
+    expect(parsed.couples[0].passcode).toBe('0482')
+    expect(parsed.rsvps[0].name).toBe('Pak Andi')
+    expect(parsed.wishes[0].hidden).toBe(true)
   })
 
-  it('"replace" removes couples not in the file', async () => {
-    const src = await seedTwo()
-    const parsed = await parseBackup(await createBackup(src.repo, src.media))
-    const dst = setup()
-    await dst.repo.create({
-      slug: 'lama',
-      defaultTheme: 'rustic-garden',
-      content: structuredClone(anisaRaka),
-    })
-    await restoreBackup(parsed, 'replace', dst.repo)
-    expect((await dst.repo.list()).map((c) => c.slug).sort()).toEqual(['dua', 'satu'])
+  it('rejects invalid files, naming the first problem', async () => {
+    await expect(parseBackup(new Blob(['nope']))).rejects.toThrow('File cadangan tidak valid: bukan file JSON')
+    await expect(parseBackup(asBlob({ ...v1File(), formatVersion: 3 }))).rejects.toThrow(
+      'Versi file cadangan lebih baru',
+    )
+    const badSize = v1File()
+    ;(badSize.media[0] as { size: number }).size = 99
+    await expect(parseBackup(asBlob(badSize))).rejects.toThrow('ukuran tidak cocok')
+    const badSlug = v1File()
+    ;(badSlug.couples[0] as { slug: string }).slug = 'Bukan Slug'
+    await expect(parseBackup(asBlob(badSlug))).rejects.toBeInstanceOf(BackupError)
   })
 
-  it('rejects invalid files without writing anything', async () => {
-    const bad = async (data: unknown) =>
-      parseBackup(new Blob([typeof data === 'string' ? data : JSON.stringify(data)]))
-    await expect(bad('not json')).rejects.toBeInstanceOf(BackupError)
-    await expect(bad({ format: 'other' })).rejects.toThrow('File cadangan tidak valid')
+  it('accepts unfinished drafts (full content rules apply only when saving)', async () => {
+    const doc = v1File()
+    const c = doc.couples[0] as { status: string; content: { couple: { bride: { fullName: string } } } }
+    c.status = 'draft'
+    c.content.couple.bride.fullName = ''
+    await expect(parseBackup(asBlob(doc))).resolves.toBeTruthy()
+  })
+})
 
-    const src = await seedTwo()
-    const valid = JSON.parse(await (await createBackup(src.repo, src.media)).text())
-    await expect(bad({ ...valid, formatVersion: 2 })).rejects.toThrow('lebih baru')
-    const sizeMismatch = {
-      ...valid,
-      media: valid.media.map((m: { size: number }) => ({ ...m, size: m.size + 1 })),
-    }
-    await expect(bad(sizeMismatch)).rejects.toThrow('ukuran tidak cocok')
-    const badCouple = { ...valid, couples: [{ ...valid.couples[0], slug: 'login' }] }
-    await expect(bad(badCouple)).rejects.toBeInstanceOf(BackupError)
+describe('keep both', () => {
+  it('gives the copy new ids, a free -pulihan address and rewritten refs', async () => {
+    const parsed = await parseBackup(asBlob(v1File()))
+    const original = bundleFor(parsed, 'c1')
+    const copy = planKeepBoth(original, new Set(['satu', 'satu-pulihan']))
+    expect(copy.couple.id).not.toBe('c1')
+    expect(copy.couple.slug).toBe('satu-pulihan-2')
+    expect(copy.media[0].id).not.toBe('m1')
+    expect(copy.media[0].coupleId).toBe(copy.couple.id)
+    expect([...collectMediaRefs(copy.couple.content)]).toEqual([copy.media[0].id])
+    // The original is untouched.
+    expect([...collectMediaRefs(original.couple.content)]).toEqual(['m1'])
   })
 
-  it('restores unfinished drafts (content rules apply only when saving)', async () => {
-    const { emptyContent } = await import('../../src/data/emptyContent')
-    const src = setup()
-    await src.repo.create({
-      slug: 'draf-baru',
-      defaultTheme: 'rustic-garden',
-      content: emptyContent('A', 'B'),
-    })
-    const parsed = await parseBackup(await createBackup(src.repo, src.media))
-    const dst = setup()
-    expect((await restoreBackup(parsed, 'replace', dst.repo)).restored).toBe(1)
-    expect((await dst.repo.list())[0].slug).toBe('draf-baru')
+  it('keeps long addresses within 40 characters', () => {
+    const slug = restoredSlug('a'.repeat(40), new Set())
+    expect(slug.length).toBeLessThanOrEqual(40)
+    expect(slug.endsWith('-pulihan')).toBe(true)
   })
+})
 
+describe('file names', () => {
   it('names files by date and time', () => {
-    expect(backupFileName(new Date(2026, 9, 2, 9, 5))).toBe('undangan-backup-20261002-0905.json')
+    expect(backupFileName(new Date(2026, 9, 2, 8, 5))).toBe('undangan-backup-20261002-0805.json')
   })
 })

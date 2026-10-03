@@ -14,21 +14,31 @@ export type FieldErrors = Partial<Record<string, string>>
 
 export class ValidationError extends Error {
   fieldErrors: FieldErrors
-  constructor(fieldErrors: FieldErrors) {
-    super('validation')
+  /** API error code when it came from the server (e.g. 'not_publishable'). */
+  code?: string
+  constructor(fieldErrors: FieldErrors, message = 'validation', code?: string) {
+    super(message)
     this.name = 'ValidationError'
     this.fieldErrors = fieldErrors
+    this.code = code
   }
 }
 
+export interface Page<T> {
+  items: T[]
+  nextCursor: string | null
+}
+
 export interface RsvpService {
+  /** This browser's earlier response, if any (US5-1). */
+  mine(): Promise<RsvpResponse | null>
   /** Rejects with ValidationError when input is invalid. */
   submit(input: RsvpInput): Promise<RsvpResponse>
 }
 
 export interface WishService {
-  /** Newest first. */
-  list(): Promise<Wish[]>
+  /** Newest first, a page at a time (pass the previous nextCursor for more). */
+  list(cursor?: string): Promise<Page<Wish>>
   /** Rejects with ValidationError when input is invalid. */
   submit(input: WishInput): Promise<Wish>
 }

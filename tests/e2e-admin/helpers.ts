@@ -11,11 +11,20 @@ export async function login(page: Page, path = '/') {
   await expect(page).not.toHaveURL(/\/login/)
 }
 
+/**
+ * A fresh address name. All specs and both admin viewports share one database,
+ * so every couple a test creates needs its own.
+ */
+export function uniqueSlug(base = 'sari-budi') {
+  return `${base}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+}
+
 /** Creates a couple from the dashboard and returns its editor URL. */
-export async function createCouple(page: Page, bride = 'Sari', groom = 'Budi') {
+export async function createCouple(page: Page, bride = 'Sari', groom = 'Budi', slug = uniqueSlug()) {
   await page.goto('/couples/new')
   await page.getByLabel('Nama panggilan mempelai wanita').fill(bride)
   await page.getByLabel('Nama panggilan mempelai pria').fill(groom)
+  await page.getByLabel('Alamat undangan').fill(slug)
   await page.getByRole('button', { name: /Buat/ }).click()
   await expect(page).toHaveURL(/\/couples\/[^/]+\/mempelai$/)
   return page.url()

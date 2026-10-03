@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createCouple, login, PUBLIC_URL } from './helpers'
+import { createCouple, login, PUBLIC_URL, uniqueSlug } from './helpers'
 
 test('creating a couple suggests the address and rejects taken or reserved names', async ({
   page,
@@ -19,7 +19,7 @@ test('creating a couple suggests the address and rejects taken or reserved names
   await page.getByRole('button', { name: /Buat/ }).click()
   await expect(page.getByText('Nama alamat sudah dipakai pasangan lain')).toBeVisible()
 
-  await slug.fill('budi-sari')
+  await slug.fill(uniqueSlug('budi-sari'))
   await page.getByRole('button', { name: /Buat/ }).click()
   await expect(page).toHaveURL(/\/couples\/[^/]+\/mempelai$/)
 })
@@ -30,17 +30,19 @@ test('the list shows both addresses with copy buttons; preview and links use the
 }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await login(page)
-  const editorUrl = await createCouple(page, 'Sari', 'Budi')
+  const s = uniqueSlug('sari-budi')
+  const editorUrl = await createCouple(page, 'Sari', 'Budi', s)
   const id = editorUrl.split('/').at(-2)!
 
   await page.goto('/')
-  const card = page.locator('[data-testid=couple-card][data-slug=sari-budi]')
+  await page.getByLabel('Cari pasangan').fill(s)
+  const card = page.locator(`[data-testid=couple-card][data-slug=${s}]`)
   await expect(card).toContainText('Sari & Budi')
   await expect(card.getByTestId('status-badge')).toHaveText('Draf')
-  await expect(card.getByTestId('invitation-url')).toHaveText(`${PUBLIC_URL}/sari-budi`)
-  await expect(card.getByTestId('send-url')).toHaveText(`${PUBLIC_URL}/sari-budi/send-invitation`)
+  await expect(card.getByTestId('invitation-url')).toHaveText(`${PUBLIC_URL}/${s}`)
+  await expect(card.getByTestId('send-url')).toHaveText(`${PUBLIC_URL}/${s}/send-invitation`)
   await card.getByRole('button', { name: 'Salin Undangan' }).click()
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${PUBLIC_URL}/sari-budi`)
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${PUBLIC_URL}/${s}`)
 
   // Full-page preview shows this couple (any status).
   await page.goto(`/couples/${id}/preview`)
@@ -52,7 +54,7 @@ test('the list shows both addresses with copy buttons; preview and links use the
   await page.goto(`/couples/${id}/send-invitation`)
   await page.getByLabel('Satu nama per baris').fill('Johan & Partner')
   await expect(page.getByTestId('invite-link').first()).toHaveText(
-    `${PUBLIC_URL}/sari-budi?inv=Johan+%26+Partner&t=1`,
+    `${PUBLIC_URL}/${s}?inv=Johan+%26+Partner&t=1`,
   )
   const preview = page.frameLocator('[data-testid=cover-preview]')
   await expect(preview.getByTestId('guest-name')).toHaveText('Johan & Partner')

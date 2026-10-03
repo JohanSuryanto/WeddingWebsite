@@ -1,9 +1,5 @@
-// Data wiring for the PUBLIC site (wedding.johansuryanto.dev).
-// Backend phase: replace with an HttpCoupleRepository (public read endpoints) and
-// an HTTP media source; screens stay unchanged.
-import { SAMPLE_COUPLES } from '../content/samples'
-import { StaticCoupleRepository } from './static/StaticCoupleRepository'
-import type { CoupleRepository, MediaStore } from './types'
+// Data wiring for the PUBLIC site (wedding.johansuryanto.dev): published couples only.
+import { HttpPublicCoupleSource } from './http/HttpPublicCoupleSource'
+import type { PublicCoupleSource } from './types'
 
-export const coupleRepository: CoupleRepository = new StaticCoupleRepository(SAMPLE_COUPLES)
-export const mediaStore: MediaStore | null = null
+export const publicCouples: PublicCoupleSource = new HttpPublicCoupleSource()

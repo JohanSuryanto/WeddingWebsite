@@ -7,6 +7,7 @@ import { orderedCouple } from '../../content/selectors'
 import { coupleRepository, ready } from '../../data/index.admin'
 import type { Couple, CoupleStatus } from '../../data/types'
 import { Dialog } from '../components/Dialog'
+import { statusErrorMessage } from '../couples/statusError'
 import { useLoad } from '../hooks/useLoad'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { MediaSessionProvider, useMediaSession } from '../media/MediaSession'
@@ -32,6 +33,7 @@ const TAB_COMPONENTS: Record<TabId, ComponentType> = {
   penutup: lazy(() => import('./tabs/PenutupTab')),
   pesan: lazy(() => import('./tabs/PesanTab')),
   pengaturan: lazy(() => import('./tabs/PengaturanTab')),
+  respons: lazy(() => import('./tabs/ResponsTab')),
 }
 
 function TabBar({ coupleId, active }: { coupleId: string; active: TabId }) {
@@ -68,7 +70,7 @@ function TabBar({ coupleId, active }: { coupleId: string; active: TabId }) {
 
 function Editor({ initial, tab }: { initial: Couple; tab: TabId }) {
   const toast = useToast()
-  const { markSaved } = useMediaSession()
+  const { markSaved, blocking } = useMediaSession()
   const { form, couple, setCouple, save, reloadLatest } = useCoupleForm(initial)
   const { isDirty, isSubmitting } = form.formState
   const [conflict, setConflict] = useState(false)
@@ -104,7 +106,11 @@ function Editor({ initial, tab }: { initial: Couple; tab: TabId }) {
       } else if (result.reason === 'conflict') {
         setConflict(true)
       } else {
-        toast(result.reason === 'slug' ? result.message : `Gagal menyimpan: ${result.message}`)
+        toast(
+          result.reason === 'slug' || result.reason === 'network'
+            ? result.message
+            : `Gagal menyimpan: ${result.message}`,
+        )
       }
     },
     [save, markSaved, toast],
@@ -127,9 +133,13 @@ function Editor({ initial, tab }: { initial: Couple; tab: TabId }) {
 
   const setStatus = useCallback(
     async (status: CoupleStatus) => {
-      const next = await coupleRepository.setStatus(couple.id, status)
-      setCouple(next)
-      toast(status === 'active' ? 'Undangan diterbitkan' : 'Undangan dijadikan draf')
+      try {
+        const next = await coupleRepository.setStatus(couple.id, status)
+        setCouple(next)
+        toast(status === 'active' ? 'Undangan diterbitkan' : 'Undangan dijadikan draf')
+      } catch (err) {
+        toast(statusErrorMessage(err))
+      }
     },
     [couple.id, setCouple, toast],
   )
@@ -173,10 +183,20 @@ function Editor({ initial, tab }: { initial: Couple; tab: TabId }) {
               <Link to={`/couples/${couple.id}/preview`} className="btn-outline px-4 py-1 text-sm">
                 Pratinjau
               </Link>
-              <button type="submit" className="btn-primary" disabled={!isDirty || isSubmitting}>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={!isDirty || isSubmitting || blocking}
+                aria-describedby={blocking ? 'save-blocked' : undefined}
+              >
                 {isSubmitting ? 'Menyimpan…' : isDirty ? 'Simpan' : 'Tersimpan'}
               </button>
             </div>
+            {blocking && (
+              <p id="save-blocked" className="w-full text-right text-sm text-muted" role="status">
+                Tunggu unggahan selesai atau hapus file yang gagal
+              </p>
+            )}
           </div>
 
           <TabBar coupleId={couple.id} active={tab} />

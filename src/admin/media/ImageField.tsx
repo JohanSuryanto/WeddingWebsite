@@ -1,8 +1,13 @@
-import { useId, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
+import { useToast } from '../../components/Toast'
 import type { ImageRef } from '../../content/types'
 import { useMediaUrl } from '../hooks/useMediaUrl'
 import { formatSize, type ImagePreset } from './compressImage'
-import { UploadError, useMediaSession } from './MediaSession'
+import { MediaPickerDialog } from './MediaPickerDialog'
+import { useMediaSession } from './MediaSession'
+import { sampleFile, type MediaSample } from './samples'
+import { UploadStatusLine } from './UploadStatusLine'
+import { useUpload } from './useUploads'
 
 const EMPTY: ImageRef = { src: '', width: 1, height: 1 }
 
@@ -30,24 +35,31 @@ export function ImageField({
   const inputRef = useRef<HTMLInputElement>(null)
   const { uploadImage, urls } = useMediaSession()
   const url = useMediaUrl(value?.src, urls)
-  const [busy, setBusy] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
   const [size, setSize] = useState<number | null>(null)
-  const shownError = problem ?? error
-
-  async function pick(file: File | undefined) {
-    if (!file) return
-    setProblem(null)
-    setBusy(true)
-    try {
-      const { size: stored, ...ref } = await uploadImage(file, preset)
+  const upload = useUpload(
+    (file, onProgress) => uploadImage(file, preset, onProgress),
+    ({ size: stored, ...ref }) => {
       setSize(stored)
       onChange(ref)
-    } catch (err) {
-      setProblem(err instanceof UploadError ? err.message : 'Gagal mengunggah foto')
-    } finally {
-      setBusy(false)
-      if (inputRef.current) inputRef.current.value = ''
+    },
+    'Gagal mengunggah foto',
+  )
+  const busy = upload.state.status === 'uploading'
+  const shownError = error
+
+  function pick(file: File | undefined) {
+    if (inputRef.current) inputRef.current.value = ''
+    if (file) void upload.start(file)
+  }
+
+  const toast = useToast()
+  const [picking, setPicking] = useState(false)
+  const closePicker = useCallback(() => setPicking(false), [])
+  async function pickSample([sample]: MediaSample[]) {
+    try {
+      pick(await sampleFile(sample))
+    } catch {
+      toast('Foto contoh tidak bisa dimuat, coba lagi')
     }
   }
 
@@ -61,18 +73,28 @@ export function ImageField({
       <div
         className={`relative flex ${aspect} w-full max-w-sm items-center justify-center overflow-hidden rounded-xl border-2 border-dashed ${
           shownError ? 'border-[#a33a50]' : 'border-accent/50'
-        } bg-surface-alt`}
+        } cursor-pointer bg-surface-alt`}
+        role="button"
+        tabIndex={0}
+        aria-label={`Buka pilihan foto ${label}`}
+        onClick={() => !busy && setPicking(true)}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !busy) {
+            e.preventDefault()
+            setPicking(true)
+          }
+        }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
-          void pick(e.dataTransfer.files[0])
+          pick(e.dataTransfer.files[0])
         }}
       >
         {hasImage && url ? (
           <img src={url} alt={`Pratinjau ${label}`} className="h-full w-full object-cover" />
         ) : (
           <span className="px-4 text-center text-sm text-muted">
-            {busy ? 'Memproses…' : 'Tarik foto ke sini atau pilih file'}
+            {busy ? 'Memproses…' : 'Klik untuk memilih foto, atau tarik foto ke sini'}
           </span>
         )}
         {busy && hasImage && (
@@ -88,12 +110,12 @@ export function ImageField({
         accept="image/*"
         className="sr-only"
         aria-label={`Pilih foto ${label}`}
-        onChange={(e) => void pick(e.target.files?.[0])}
+        onChange={(e) => pick(e.target.files?.[0])}
       />
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <label htmlFor={id} className="btn-outline cursor-pointer px-4 py-1 text-sm">
+        <button type="button" className="btn-outline px-4 py-1 text-sm" onClick={() => setPicking(true)} disabled={busy}>
           {hasImage ? 'Ganti' : 'Pilih Foto'}
-        </label>
+        </button>
         {hasImage && (
           <button
             type="button"
@@ -112,6 +134,16 @@ export function ImageField({
           </span>
         )}
       </div>
+      <UploadStatusLine state={upload.state} onRetry={upload.retry} onDismiss={upload.dismiss} />
+      {picking && (
+        <MediaPickerDialog
+          kind="image"
+          title={`Pilih foto: ${label}`}
+          inputId={id}
+          onSamples={pickSample}
+          onClose={closePicker}
+        />
+      )}
       {shownError && (
         <p className="field-error" role="alert">
           {shownError}

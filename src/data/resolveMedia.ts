@@ -63,7 +63,8 @@ export function rewriteMediaRefs(content: WeddingContent, idMap: Map<string, str
 }
 
 /**
- * Replaces `media:<id>` references with `blob:` URLs the invitation can use.
+ * Replaces `media:<id>` references with URLs the invitation can use: the store's
+ * delivery URL when it has one, otherwise a `blob:` URL of the downloaded file.
  * Missing media become '' (SafeImage shows its placeholder). Call `dispose`
  * to revoke the URLs.
  */
@@ -75,7 +76,8 @@ export async function resolveMedia(
   const created: string[] = []
   const urls = new Map<string, string>()
   for (const id of collectMediaRefs(content)) {
-    const known = extra?.get(id)
+    // Delivery URLs (from the server) are used as-is: nothing to download or revoke.
+    const known = extra?.get(id) ?? store?.urlOf?.(id)
     if (known) {
       urls.set(id, known)
       continue
