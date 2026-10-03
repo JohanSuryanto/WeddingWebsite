@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openInvitation, scrollThrough } from './helpers'
+import { openInvitation, openSendInvitation, scrollThrough } from './helpers'
 
 async function assertNoHorizontalOverflow(page: import('@playwright/test').Page) {
   const { scrollWidth, innerWidth } = await page.evaluate(() => ({
@@ -41,7 +41,7 @@ test.describe('reduced motion', () => {
   })
 })
 
-test('gift copy, RSVP validation and wishes work without saving', async ({
+test('gift copy, RSVP validation; RSVPs and wishes are saved', async ({
   page,
   context,
   browserName,
@@ -69,13 +69,25 @@ test('gift copy, RSVP validation and wishes work without saving', async ({
 
   const wishes = page.locator('#ucapan')
   await expect(wishes.getByLabel('Nama')).toHaveValue('Budi Santoso')
-  await wishes.getByLabel('Ucapan & Doa').fill('Selamat menempuh hidup baru!')
+  // Unique per run: every viewport writes to the same sample couple.
+  const text = `Selamat menempuh hidup baru! ${test.info().project.name} ${Date.now()}`
+  await wishes.getByLabel('Ucapan & Doa').fill(text)
   await wishes.getByRole('button', { name: 'Kirim Ucapan' }).click()
   const list = page.getByTestId('wish-list')
-  await expect(list.locator('li').first()).toContainText('Selamat menempuh hidup baru!')
-  await expect(list.locator('li')).toHaveCount(4)
+  await expect(list.locator('li').first()).toContainText(text)
 
+  // Saved now (US5): still there after a refresh, and the RSVP is remembered.
   await page.reload()
   await page.getByRole('button', { name: 'Buka Undangan' }).click()
-  await expect(page.getByTestId('wish-list').locator('li')).toHaveCount(3)
+  await expect(page.getByTestId('wish-list')).toContainText(text)
+  await expect(page.locator('#rsvp')).toContainText('Respons Anda sudah kami terima')
+})
+
+test('passcode screen and guest responses have no horizontal overflow (US4, US5)', async ({ page }) => {
+  await page.goto('/anisa-raka/send-invitation')
+  await expect(page.getByRole('heading', { name: 'Masukkan kode akses' })).toBeVisible()
+  await assertNoHorizontalOverflow(page)
+  await openSendInvitation(page)
+  await expect(page.getByTestId('guest-responses')).toBeVisible()
+  await assertNoHorizontalOverflow(page)
 })

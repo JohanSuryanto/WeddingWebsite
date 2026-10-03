@@ -7,12 +7,15 @@ const ServicesContext = createContext<InvitationServices | null>(null)
 /** RSVP and wishes services for one couple's invitation. */
 export function ServicesProvider({
   content,
+  liveSlug,
   children,
 }: {
   content: WeddingContent
+  /** The published couple's address; omit for previews (nothing is saved). */
+  liveSlug?: string
   children: ReactNode
 }) {
-  const services = useMemo(() => createServicesFor(content), [content])
+  const services = useMemo(() => createServicesFor(content, { slug: liveSlug }), [content, liveSlug])
   return <ServicesContext.Provider value={services}>{children}</ServicesContext.Provider>
 }
 

@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../../components/Toast'
-import {
-  backupFileName,
-  createBackup,
-  findConflicts,
-  parseBackup,
-  restoreBackup,
-  type ParsedBackup,
-} from '../../data/backup'
-import { coupleRepository, mediaStore, ready } from '../../data/index.admin'
+import { backupFileName, parseBackup, type ParsedBackup } from '../../data/backup'
 import { formatSize } from '../media/compressImage'
-import { Dialog } from '../components/Dialog'
+import { runExport } from './export'
+import {
+  coupleNamesOf,
+  defaultChoice,
+  preflight,
+  runRestore,
+  type Preflight,
+  type RestoreChoice,
+  type RestoreOutcome,
+  type RestoreProgress,
+} from './restore'
 
 const LAST_BACKUP_KEY = 'admin.lastBackupAt'
 
@@ -26,26 +28,35 @@ function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })
 }
 
+const CHOICE_LABEL: Record<Exclude<RestoreChoice, 'new'>, string> = {
+  skip: 'Lewati',
+  replace: 'Ganti',
+  both: 'Simpan keduanya',
+}
+
+/** Download a full backup, or restore one (002 v1 or v2) into the server (US6, US7). */
 export default function BackupPage() {
   const toast = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [lastBackup, setLastBackup] = useState(readLastBackup)
-  const [busy, setBusy] = useState(false)
+  const [exporting, setExporting] = useState<{ done: number; total: number } | null>(null)
   const [parsed, setParsed] = useState<ParsedBackup | null>(null)
-  const [conflicts, setConflicts] = useState<string[]>([])
+  const [pf, setPf] = useState<Preflight | null>(null)
+  const [choices, setChoices] = useState<Record<string, RestoreChoice>>({})
+  const [progress, setProgress] = useState<RestoreProgress | null>(null)
+  const [outcomes, setOutcomes] = useState<RestoreOutcome[] | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
-  const [mode, setMode] = useState<'add' | 'replace'>('add')
-  const [confirmReplace, setConfirmReplace] = useState(false)
+  const restoring = progress !== null
 
   useEffect(() => {
     document.title = 'Cadangan · Admin Undangan'
   }, [])
 
   async function download() {
-    setBusy(true)
+    setProblem(null)
+    setExporting({ done: 0, total: 0 })
     try {
-      await ready
-      const blob = await createBackup(coupleRepository, mediaStore)
+      const blob = await runExport((done, total) => setExporting({ done, total }))
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -58,12 +69,14 @@ export default function BackupPage() {
       try {
         localStorage.setItem(LAST_BACKUP_KEY, now)
       } catch {
-        // ignore
+        // Blocked storage: the reminder just won't show.
       }
       setLastBackup(now)
       toast(`Cadangan diunduh (${formatSize(blob.size)})`)
+    } catch (err) {
+      setProblem((err as Error).message)
     } finally {
-      setBusy(false)
+      setExporting(null)
     }
   }
 
@@ -71,61 +84,62 @@ export default function BackupPage() {
     if (!file) return
     setProblem(null)
     setParsed(null)
-    setBusy(true)
+    setOutcomes(null)
     try {
-      await ready
       const p = await parseBackup(file)
+      const check = await preflight(p)
       setParsed(p)
-      setConflicts((await findConflicts(p, coupleRepository)).map((c) => c.slug))
+      setPf(check)
+      setChoices(Object.fromEntries(p.couples.map((c) => [c.id, defaultChoice(c, check)])))
     } catch (err) {
       setProblem((err as Error).message)
     } finally {
-      setBusy(false)
       if (fileRef.current) fileRef.current.value = ''
     }
   }
 
   async function restore() {
-    if (!parsed) return
-    setBusy(true)
+    if (!parsed || !pf) return
+    setProgress({ names: '', done: 0, total: 0 })
     try {
-      const result = await restoreBackup(parsed, mode, coupleRepository)
-      toast(
-        result.skipped.length
-          ? `${result.restored} pasangan dipulihkan, ${result.skipped.length} dilewati`
-          : `${result.restored} pasangan dipulihkan`,
-      )
+      const result = await runRestore(parsed, choices, pf, setProgress)
+      setOutcomes(result)
+      const restored = result.filter((r) => r.result === 'Dipulihkan').length
+      toast(`${restored} pasangan dipulihkan`)
       setParsed(null)
-      setConfirmReplace(false)
-    } catch (err) {
-      setProblem(`Gagal memulihkan: ${(err as Error).message}`)
     } finally {
-      setBusy(false)
+      setProgress(null)
     }
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-3xl text-text">Cadangan</h1>
 
       <section className="card space-y-3 p-5 sm:p-6">
         <h2 className="text-xl text-text">Unduh Cadangan</h2>
         <p className="text-sm text-muted">
-          Semua pasangan dan fotonya disimpan ke satu file. Simpan file ini di tempat aman (misalnya
-          Google Drive). Data di dashboard hanya ada di browser ini.
+          Semua pasangan, foto, musik, kode akses, konfirmasi kehadiran dan ucapan disimpan ke satu file. Simpan
+          file ini di tempat aman (misalnya Google Drive), untuk berjaga-jaga jika layanan gratis berubah.
         </p>
         <p className="text-sm text-text" data-testid="last-backup">
-          {lastBackup
-            ? `Cadangan terakhir: ${formatDateTime(lastBackup)}`
-            : 'Belum pernah mengunduh cadangan.'}
+          {lastBackup ? `Cadangan terakhir: ${formatDateTime(lastBackup)}` : 'Belum pernah mengunduh cadangan.'}
         </p>
-        <button type="button" className="btn-primary" onClick={download} disabled={busy}>
-          {busy && !parsed ? 'Memproses…' : 'Unduh Cadangan'}
+        <button type="button" className="btn-primary" onClick={download} disabled={!!exporting || restoring}>
+          {exporting ? 'Menyiapkan…' : 'Unduh Cadangan'}
         </button>
+        {exporting && exporting.total > 0 && (
+          <p className="text-sm text-text" role="status" aria-live="polite">
+            Mengunduh foto {exporting.done} dari {exporting.total}
+          </p>
+        )}
       </section>
 
       <section className="card space-y-4 p-5 sm:p-6">
         <h2 className="text-xl text-text">Pulihkan dari File</h2>
+        <p className="text-sm text-muted">
+          Bisa dari file cadangan dashboard lama (yang menyimpan data di browser) maupun yang baru.
+        </p>
         <input
           ref={fileRef}
           id="restore-file"
@@ -143,77 +157,68 @@ export default function BackupPage() {
           </p>
         )}
 
-        {parsed && (
+        {parsed && pf && (
           <div className="space-y-4 rounded-xl bg-surface-alt p-4" data-testid="restore-summary">
             <p className="text-text">
               <strong>{parsed.couples.length} pasangan</strong>, {parsed.media.length} file (
               {formatSize(parsed.totalBytes)}), dibuat {formatDateTime(parsed.createdAt)}.
             </p>
-            {conflicts.length > 0 && (
-              <p className="text-sm text-text">
-                Sudah ada: <span className="font-mono">{conflicts.join(', ')}</span>
+            <ul className="divide-y divide-accent/20">
+              {parsed.couples.map((c) => {
+                const choice = choices[c.id]
+                const pending = pf.pendingIds.includes(c.id)
+                return (
+                  <li key={c.id} className="flex flex-wrap items-center gap-2 py-2" data-testid="restore-row">
+                    <span className="min-w-0 flex-1">
+                      <span className="font-bold text-text">{coupleNamesOf(c)}</span>{' '}
+                      <span className="font-mono text-xs text-muted">/{c.slug}</span>
+                      {choice !== 'new' && (
+                        <span className="ml-2 rounded-full bg-surface px-2 py-0.5 text-xs font-bold text-[#a33a50]">
+                          {pending ? 'Pemulihan belum selesai' : 'Sudah ada'}
+                        </span>
+                      )}
+                    </span>
+                    {choice !== 'new' && (
+                      <select
+                        aria-label={`Pilihan untuk ${coupleNamesOf(c)}`}
+                        className="field w-auto py-1 text-sm"
+                        value={choice}
+                        onChange={(e) => setChoices((x) => ({ ...x, [c.id]: e.target.value as RestoreChoice }))}
+                      >
+                        {(Object.keys(CHOICE_LABEL) as (keyof typeof CHOICE_LABEL)[]).map((k) => (
+                          <option key={k} value={k}>
+                            {pending && k === 'replace' ? 'Lanjutkan' : CHOICE_LABEL[k]}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            <button type="button" className="btn-primary" disabled={restoring} onClick={() => void restore()}>
+              {restoring ? 'Memulihkan…' : 'Pulihkan'}
+            </button>
+            {progress && progress.names && (
+              <p className="text-sm text-text" role="status" aria-live="polite">
+                Memulihkan {progress.names}: foto {progress.done} dari {progress.total}
               </p>
             )}
-            <fieldset className="space-y-2">
-              <legend className="font-bold text-text">Cara memulihkan</legend>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="restore-mode"
-                  checked={mode === 'add'}
-                  onChange={() => setMode('add')}
-                />
-                Tambahkan (lewati yang sudah ada)
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="restore-mode"
-                  checked={mode === 'replace'}
-                  onChange={() => setMode('replace')}
-                />
-                Ganti semua
-              </label>
-            </fieldset>
-            <button
-              type="button"
-              className="btn-primary"
-              disabled={busy}
-              onClick={() => (mode === 'replace' ? setConfirmReplace(true) : void restore())}
-            >
-              {busy ? 'Memulihkan…' : 'Pulihkan'}
-            </button>
           </div>
         )}
-      </section>
 
-      {confirmReplace && (
-        <Dialog
-          title="Ganti semua data?"
-          onClose={() => setConfirmReplace(false)}
-          actions={
-            <>
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => setConfirmReplace(false)}
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                disabled={busy}
-                onClick={() => void restore()}
-              >
-                Ganti semua
-              </button>
-            </>
-          }
-        >
-          <p>Semua data saat ini akan diganti dengan isi file cadangan.</p>
-        </Dialog>
-      )}
+        {outcomes && (
+          <ul className="space-y-1" data-testid="restore-results">
+            {outcomes.map((o) => (
+              <li key={o.coupleId} className="text-sm">
+                <strong>{o.names}</strong>:{' '}
+                <span className={o.result === 'Gagal' ? 'font-bold text-[#a33a50]' : 'text-text'}>{o.result}</span>
+                {o.message && <span className="text-muted"> — {o.message}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }

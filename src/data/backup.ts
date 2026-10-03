@@ -1,13 +1,16 @@
+// Backup files (contracts/backup-format.md). v1 = 002 browser-only dashboard,
+// v2 = adds passcodes, RSVPs and wishes. Export and restore are driven by the
+// browser (src/admin/backup/*), so no request ever carries file bytes to the API.
 import { z } from 'zod'
-import type { MediaRecord } from './indexeddb/db'
-import type { IndexedDbCoupleRepository } from './indexeddb/IndexedDbCoupleRepository'
-import type { IndexedDbMediaStore } from './indexeddb/IndexedDbMediaStore'
-import { slugSchema, themeIdSchema } from './schema'
-import type { Couple } from './types'
+import type { Attendance } from '../content/types'
+import { newId } from './ids'
+import { rewriteMediaRefs } from './resolveMedia'
+import { slugSchema, storedContentSchema, themeIdSchema } from './schema'
+import { SLUG_MAX } from './slug'
+import type { Couple, MediaKind } from './types'
 
-/** contracts/backup-format.md */
 export const BACKUP_FORMAT = 'wedding-admin-backup'
-export const BACKUP_FORMAT_VERSION = 1
+export const BACKUP_FORMAT_VERSION = 2
 
 const mediaSchema = z.object({
   id: z.string().min(1),
@@ -21,24 +24,42 @@ const mediaSchema = z.object({
   data: z.string(),
 })
 
-/**
- * Couples as stored. Drafts may be unfinished, so content is checked for
- * structure only; the full content rules apply when the admin saves.
- */
+/** Couples as stored. Drafts may be unfinished, so content is checked for structure only. */
 const storedCoupleSchema = z.object({
   id: z.string().min(1),
   slug: slugSchema,
   status: z.enum(['draft', 'active']),
   defaultTheme: themeIdSchema,
-  content: z.looseObject({
-    cover: z.looseObject({ background: z.looseObject({ src: z.string() }) }),
-    couple: z.looseObject({ bride: z.looseObject({}), groom: z.looseObject({}) }),
-    events: z.array(z.looseObject({})),
-    closing: z.looseObject({}),
-  }),
+  content: storedContentSchema,
   version: z.number().int().min(1),
+  passcode: z
+    .string()
+    .regex(/^\d{4}$/)
+    .optional(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
+})
+
+const attendance = z.enum(['hadir', 'tidak_hadir'])
+
+const rsvpSchema = z.object({
+  id: z.string().min(1),
+  coupleId: z.string().min(1),
+  name: z.string().min(1).max(60),
+  attendance,
+  guestCount: z.number().int().min(0).max(5),
+  submittedAt: z.string(),
+  updatedAt: z.string(),
+})
+
+const wishSchema = z.object({
+  id: z.string().min(1),
+  coupleId: z.string().min(1),
+  name: z.string().min(1).max(60),
+  message: z.string().min(1).max(500),
+  attendance: attendance.nullable().optional(),
+  hidden: z.boolean().default(false),
+  createdAt: z.string(),
 })
 
 const backupSchema = z.object({
@@ -52,6 +73,8 @@ const backupSchema = z.object({
   app: z.object({ build: z.string() }).optional(),
   couples: z.array(storedCoupleSchema),
   media: z.array(mediaSchema),
+  rsvps: z.array(rsvpSchema).optional(),
+  wishes: z.array(wishSchema).optional(),
 })
 
 export class BackupError extends Error {
@@ -61,7 +84,52 @@ export class BackupError extends Error {
   }
 }
 
-async function blobToBase64(blob: Blob): Promise<string> {
+/** A couple from a backup; v1 files have no passcode. */
+export type BackupCouple = Omit<Couple, 'passcode'> & { passcode?: string }
+
+export interface BackupMedia {
+  id: string
+  coupleId: string
+  kind: MediaKind
+  mime: string
+  size: number
+  width?: number
+  height?: number
+  createdAt: string
+  blob: Blob
+}
+
+export interface BackupRsvp {
+  id: string
+  coupleId: string
+  name: string
+  attendance: Attendance
+  guestCount: number
+  submittedAt: string
+  updatedAt: string
+}
+
+export interface BackupWish {
+  id: string
+  coupleId: string
+  name: string
+  message: string
+  attendance?: Attendance | null
+  hidden: boolean
+  createdAt: string
+}
+
+export interface ParsedBackup {
+  formatVersion: number
+  couples: BackupCouple[]
+  media: BackupMedia[]
+  rsvps: BackupRsvp[]
+  wishes: BackupWish[]
+  totalBytes: number
+  createdAt: string
+}
+
+export async function blobToBase64(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer())
   let binary = ''
   for (let i = 0; i < bytes.length; i += 0x8000) {
@@ -77,40 +145,7 @@ function base64ToBytes(data: string): Uint8Array<ArrayBuffer> {
   return bytes
 }
 
-/** All couples and media as one JSON Blob. */
-export async function createBackup(
-  repo: IndexedDbCoupleRepository,
-  media: IndexedDbMediaStore,
-  build = 'dev',
-): Promise<Blob> {
-  const couples: Couple[] = []
-  const mediaOut: z.infer<typeof mediaSchema>[] = []
-  for (const summary of await repo.list()) {
-    const couple = await repo.get(summary.id)
-    couples.push(couple)
-    for (const { blob, ...meta } of await media.listByCouple(couple.id)) {
-      mediaOut.push({ ...meta, data: await blobToBase64(blob) })
-    }
-  }
-  const envelope = {
-    format: BACKUP_FORMAT,
-    formatVersion: BACKUP_FORMAT_VERSION,
-    createdAt: new Date().toISOString(),
-    app: { build },
-    couples,
-    media: mediaOut,
-  }
-  return new Blob([JSON.stringify(envelope)], { type: 'application/json' })
-}
-
-export interface ParsedBackup {
-  couples: Couple[]
-  media: MediaRecord[]
-  totalBytes: number
-  createdAt: string
-}
-
-/** Validates a backup file completely before anything is written. */
+/** Validates a v1 or v2 backup completely before anything is written. */
 export async function parseBackup(file: Blob): Promise<ParsedBackup> {
   let raw: unknown
   try {
@@ -123,7 +158,7 @@ export async function parseBackup(file: Blob): Promise<ParsedBackup> {
     const issue = result.error.issues[0]
     throw new BackupError(`${issue.path.join('.') || 'file'}: ${issue.message}`)
   }
-  const media: MediaRecord[] = []
+  const media: BackupMedia[] = []
   for (const m of result.data.media) {
     let bytes: Uint8Array<ArrayBuffer>
     try {
@@ -137,46 +172,75 @@ export async function parseBackup(file: Blob): Promise<ParsedBackup> {
     media.push({ ...meta, blob: new Blob([bytes], { type: m.mime }) })
   }
   return {
-    couples: result.data.couples as unknown as Couple[],
+    formatVersion: result.data.formatVersion,
+    couples: result.data.couples as unknown as BackupCouple[],
     media,
+    rsvps: result.data.rsvps ?? [],
+    wishes: (result.data.wishes ?? []) as BackupWish[],
     totalBytes: media.reduce((n, m) => n + m.size, 0),
     createdAt: result.data.createdAt,
   }
 }
 
-/** Couples in the backup whose id or slug already exists. */
-export async function findConflicts(parsed: ParsedBackup, repo: IndexedDbCoupleRepository) {
-  const existing = await repo.list()
-  const ids = new Set(existing.map((c) => c.id))
-  const slugs = new Set(existing.map((c) => c.slug))
-  return parsed.couples.filter((c) => ids.has(c.id) || slugs.has(c.slug))
+/** One couple and everything that belongs to it. */
+export interface CoupleBundle {
+  couple: BackupCouple
+  media: BackupMedia[]
+  rsvps: BackupRsvp[]
+  wishes: BackupWish[]
+}
+
+export function bundleFor(parsed: ParsedBackup, coupleId: string): CoupleBundle {
+  const couple = parsed.couples.find((c) => c.id === coupleId)
+  if (!couple) throw new BackupError(`pasangan ${coupleId} tidak ada`)
+  return {
+    couple,
+    media: parsed.media.filter((m) => m.coupleId === coupleId),
+    rsvps: parsed.rsvps.filter((r) => r.coupleId === coupleId),
+    wishes: parsed.wishes.filter((w) => w.coupleId === coupleId),
+  }
+}
+
+/** First free `<slug>-pulihan`, `<slug>-pulihan-2`, … */
+export function restoredSlug(slug: string, taken: ReadonlySet<string>): string {
+  for (let i = 1; i < 100; i++) {
+    const suffix = i === 1 ? '-pulihan' : `-pulihan-${i}`
+    const candidate = `${slug.slice(0, SLUG_MAX - suffix.length).replace(/-+$/g, '')}${suffix}`
+    if (!taken.has(candidate)) return candidate
+  }
+  throw new BackupError('tidak bisa membuat nama alamat unik')
 }
 
 /**
- * Restores a parsed backup. "replace" clears everything first; "add" skips
- * couples whose id or slug already exists. Media keep their ids.
+ * "Simpan keduanya": a copy with a new couple id, a free address name and new
+ * media/response ids, with every media ref rewritten (FR-021).
  */
-export async function restoreBackup(
-  parsed: ParsedBackup,
-  mode: 'replace' | 'add',
-  repo: IndexedDbCoupleRepository,
-): Promise<{ restored: number; skipped: string[] }> {
-  if (mode === 'replace') await repo.clearAll()
-  const skip = new Set(mode === 'add' ? (await findConflicts(parsed, repo)).map((c) => c.id) : [])
-  const skipped: string[] = []
-  let restored = 0
-  for (const couple of parsed.couples) {
-    if (skip.has(couple.id)) {
-      skipped.push(couple.slug)
-      continue
-    }
-    await repo.putWithMedia(
-      couple,
-      parsed.media.filter((m) => m.coupleId === couple.id),
-    )
-    restored++
+export function planKeepBoth(bundle: CoupleBundle, takenSlugs: ReadonlySet<string>): CoupleBundle {
+  const coupleId = newId()
+  const idMap = new Map(bundle.media.map((m) => [m.id, newId()]))
+  return {
+    couple: {
+      ...bundle.couple,
+      id: coupleId,
+      slug: restoredSlug(bundle.couple.slug, takenSlugs),
+      content: rewriteMediaRefs(bundle.couple.content, idMap),
+    },
+    media: bundle.media.map((m) => ({ ...m, id: idMap.get(m.id)!, coupleId })),
+    rsvps: bundle.rsvps.map((r) => ({ ...r, id: newId(), coupleId })),
+    wishes: bundle.wishes.map((w) => ({ ...w, id: newId(), coupleId })),
   }
-  return { restored, skipped }
+}
+
+/** The JSON document of a v2 backup (media carry base64 `data`). */
+export interface BackupDocument {
+  format: typeof BACKUP_FORMAT
+  formatVersion: typeof BACKUP_FORMAT_VERSION
+  createdAt: string
+  app: { build: string }
+  couples: Couple[]
+  media: (Omit<BackupMedia, 'blob'> & { data: string })[]
+  rsvps: BackupRsvp[]
+  wishes: BackupWish[]
 }
 
 export function backupFileName(date = new Date()): string {

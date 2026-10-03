@@ -17,12 +17,30 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useToast } from '../../components/Toast'
 import type { GalleryPhoto } from '../../content/types'
+import { MAX_GALLERY } from '../../data/mediaLimits'
 import { useMediaUrl } from '../hooks/useMediaUrl'
-import { UploadError, useMediaSession } from './MediaSession'
+import { MediaPickerDialog } from './MediaPickerDialog'
+import { useMediaSession } from './MediaSession'
+import { sampleFile, type MediaSample } from './samples'
+import { describeUploadError } from './useUploads'
 
-export const GALLERY_MAX = 30
+export const GALLERY_MAX = MAX_GALLERY
+
+/** A photo still uploading, or failed and waiting for "Coba lagi" (FR-015). */
+interface PendingUpload {
+  key: string
+  file: File
+  /** Starting description (sample photos use their label). */
+  alt: string
+  status: 'uploading' | 'failed'
+  percent: number
+  message?: string
+}
+
+let uploadSeq = 0
 
 const announcements: Announcements = {
   onDragStart: ({ active }) => `Foto ${active.id} diambil.`,
@@ -139,37 +157,95 @@ export function GalleryField({
 }) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
-  const { uploadImage } = useMediaSession()
-  const [busy, setBusy] = useState<string | null>(null)
+  const { uploadImage, track } = useMediaSession()
+  const [pending, setPending] = useState<PendingUpload[]>([])
   const [problem, setProblem] = useState<string | null>(null)
+  // Sequential uploads append to the latest list, not the one from when they started.
+  const valueRef = useRef(value)
+  useEffect(() => {
+    valueRef.current = value
+  }, [value])
+  const pendingRef = useRef(pending)
+  useEffect(() => {
+    pendingRef.current = pending
+  }, [pending])
+  useEffect(() => () => pendingRef.current.forEach((u) => track(u.key, null)), [track])
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  async function add(files: FileList | null) {
+  const patch = (key: string, change: Partial<PendingUpload> | null) =>
+    setPending((list) =>
+      change ? list.map((u) => (u.key === key ? { ...u, ...change } : u)) : list.filter((u) => u.key !== key),
+    )
+
+  async function uploadOne(item: PendingUpload): Promise<string | null> {
+    track(item.key, 'uploading')
+    patch(item.key, { status: 'uploading', percent: 0, message: undefined })
+    try {
+      const { size: _size, ...src } = await uploadImage(item.file, 'gallery', (percent) => patch(item.key, { percent }))
+      void _size
+      track(item.key, null)
+      patch(item.key, null)
+      const next = [...valueRef.current, { src, alt: item.alt }]
+      valueRef.current = next
+      onChange(next)
+      return null
+    } catch (err) {
+      const { message, retryable } = describeUploadError(err, 'Gagal mengunggah foto')
+      if (retryable) {
+        track(item.key, 'failed')
+        patch(item.key, { status: 'failed', message })
+        return null
+      }
+      // Not worth retrying (wrong type, too big): drop it and say why.
+      track(item.key, null)
+      patch(item.key, null)
+      return `${item.file.name}: ${message}`
+    }
+  }
+
+  async function add(files: FileList | File[] | null, alts: string[] = []) {
     if (!files?.length) return
     setProblem(null)
-    const room = GALLERY_MAX - value.length
+    const room = GALLERY_MAX - value.length - pending.length
     const list = Array.from(files)
-    if (list.length > room) setProblem(`Maksimal ${GALLERY_MAX} foto`)
-    let next = value
-    const failures: string[] = []
-    for (const [i, file] of list.slice(0, Math.max(0, room)).entries()) {
-      setBusy(`Memproses ${i + 1} dari ${Math.min(list.length, room)}…`)
-      try {
-        const { size: _size, ...src } = await uploadImage(file, 'gallery')
-        void _size
-        next = [...next, { src, alt: '' }]
-        onChange(next)
-      } catch (err) {
-        failures.push(`${file.name}: ${err instanceof UploadError ? err.message : 'gagal'}`)
-      }
-    }
-    if (failures.length) setProblem(failures.join('; '))
-    setBusy(null)
     if (inputRef.current) inputRef.current.value = ''
+    const items: PendingUpload[] = list.slice(0, Math.max(0, room)).map((file, i) => ({
+      key: `gallery-upload-${++uploadSeq}`,
+      file,
+      alt: alts[i] ?? '',
+      status: 'uploading',
+      percent: 0,
+    }))
+    setPending((p) => [...p, ...items])
+    const problems = list.length > room ? [`Maksimal ${GALLERY_MAX} foto`] : []
+    for (const item of items) {
+      const failure = await uploadOne(item)
+      if (failure) problems.push(failure)
+    }
+    if (problems.length) setProblem(problems.join('; '))
+  }
+
+  const toast = useToast()
+  const [picking, setPicking] = useState(false)
+  const closePicker = useCallback(() => setPicking(false), [])
+  async function addSamples(samples: MediaSample[]) {
+    let files: File[]
+    try {
+      files = await Promise.all(samples.map(sampleFile))
+    } catch {
+      toast('Foto contoh tidak bisa dimuat, coba lagi')
+      return
+    }
+    await add(files, samples.map((x) => x.label))
+  }
+
+  function discard(item: PendingUpload) {
+    track(item.key, null)
+    patch(item.key, null)
   }
 
   function move(from: number, to: number) {
@@ -194,17 +270,58 @@ export function GalleryField({
           aria-label="Pilih foto galeri"
           onChange={(e) => void add(e.target.files)}
         />
-        <label
-          htmlFor={inputId}
-          className={`btn-outline cursor-pointer px-4 py-1 text-sm ${value.length >= GALLERY_MAX ? 'pointer-events-none opacity-50' : ''}`}
+        <button
+          type="button"
+          className="btn-outline px-4 py-1 text-sm"
+          disabled={value.length + pending.length >= GALLERY_MAX}
+          onClick={() => setPicking(true)}
         >
           + Tambah Foto
-        </label>
+        </button>
         <span className="text-sm text-muted">
           {value.length}/{GALLERY_MAX} foto
         </span>
-        {busy && <span className="text-sm font-bold text-text">{busy}</span>}
       </div>
+      {picking && (
+        <MediaPickerDialog
+          kind="image"
+          title="Tambah foto galeri"
+          inputId={inputId}
+          multiple
+          onSamples={(samples) => void addSamples(samples)}
+          onClose={closePicker}
+        />
+      )}
+      {pending.length > 0 && (
+        <ul className="space-y-1" aria-label="Unggahan foto galeri">
+          {pending.map((u) => (
+            <li
+              key={u.key}
+              data-testid="gallery-upload"
+              className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-alt px-3 py-2 text-sm"
+            >
+              <span className="min-w-0 flex-1 truncate">{u.file.name}</span>
+              {u.status === 'uploading' ? (
+                <span className="font-bold text-text" role="status">
+                  Mengunggah… {u.percent}%
+                </span>
+              ) : (
+                <>
+                  <span className="field-error mt-0" role="alert">
+                    {u.message}
+                  </span>
+                  <button type="button" className="btn-outline px-3 py-0.5 text-sm" onClick={() => void uploadOne(u)}>
+                    Coba lagi
+                  </button>
+                  <button type="button" className="btn-outline px-3 py-0.5 text-sm" onClick={() => discard(u)}>
+                    Hapus
+                  </button>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {problem && (
         <p className="field-error" role="alert">
           {problem}

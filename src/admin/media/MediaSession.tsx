@@ -16,11 +16,18 @@ import { compressImage, validateUpload, type ImagePreset } from './compressImage
 // eslint-disable-next-line react-refresh/only-export-components
 export class UploadError extends Error {}
 
+export type UploadStatus = 'uploading' | 'failed'
+type Progress = (percent: number) => void
+
 interface MediaSessionValue {
   /** blob: URLs for media uploaded in this session (by media id). */
   urls: ReadonlyMap<string, string>
-  uploadImage(file: File, preset: ImagePreset): Promise<ImageRef & { size: number }>
-  uploadAudio(file: File): Promise<{ src: string; size: number }>
+  uploadImage(file: File, preset: ImagePreset, onProgress?: Progress): Promise<ImageRef & { size: number }>
+  uploadAudio(file: File, onProgress?: Progress): Promise<{ src: string; size: number }>
+  /** Fields report uploads in flight or failed; null clears (FR-015). */
+  track(key: string, status: UploadStatus | null): void
+  /** True while any upload is running or failed: saving would lose or miss files. */
+  blocking: boolean
   /** Call after a save so cleanup on leave keeps what the couple now uses. */
   markSaved(content: WeddingContent): void
 }
@@ -41,6 +48,7 @@ export function MediaSessionProvider({
   children: ReactNode
 }) {
   const [urls, setUrls] = useState<ReadonlyMap<string, string>>(() => new Map())
+  const [uploads, setUploads] = useState<ReadonlyMap<string, UploadStatus>>(() => new Map())
   const uploaded = useRef<string[]>([])
   const saved = useRef(collectMediaRefs(savedContent))
   const urlsRef = useRef(urls)
@@ -64,10 +72,22 @@ export function MediaSessionProvider({
     setUrls((prev) => new Map(prev).set(id, URL.createObjectURL(blob)))
   }, [])
 
+  const track = useCallback((key: string, status: UploadStatus | null) => {
+    setUploads((prev) => {
+      if ((prev.get(key) ?? null) === status) return prev
+      const next = new Map(prev)
+      if (status) next.set(key, status)
+      else next.delete(key)
+      return next
+    })
+  }, [])
+
   const value = useMemo<MediaSessionValue>(
     () => ({
       urls,
-      async uploadImage(file, preset) {
+      track,
+      blocking: uploads.size > 0,
+      async uploadImage(file, preset, onProgress) {
         const problem = validateUpload(file, 'image')
         if (problem) throw new UploadError(problem)
         let result
@@ -80,6 +100,7 @@ export function MediaSessionProvider({
           kind: 'image',
           width: result.width,
           height: result.height,
+          onProgress,
         })
         remember(stored.id, result.blob)
         return {
@@ -89,10 +110,10 @@ export function MediaSessionProvider({
           size: stored.size,
         }
       },
-      async uploadAudio(file) {
+      async uploadAudio(file, onProgress) {
         const problem = validateUpload(file, 'audio')
         if (problem) throw new UploadError(problem)
-        const stored = await mediaStore.put(coupleId, file, { kind: 'audio' })
+        const stored = await mediaStore.put(coupleId, file, { kind: 'audio', onProgress })
         remember(stored.id, file)
         return { src: mediaRef(stored.id), size: stored.size }
       },
@@ -100,7 +121,7 @@ export function MediaSessionProvider({
         saved.current = collectMediaRefs(content)
       },
     }),
-    [urls, coupleId, remember],
+    [urls, coupleId, remember, track, uploads],
   )
 
   return <MediaSessionContext.Provider value={value}>{children}</MediaSessionContext.Provider>

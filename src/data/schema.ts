@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_GALLERY } from './mediaLimits'
 import { validateSlug } from './slug'
 
 /**
@@ -121,7 +122,7 @@ export const weddingContentSchema = z.object({
       }
     }),
   story: z.array(storySchema).optional(),
-  gallery: z.array(galleryPhotoSchema).max(30, 'Maksimal 30 foto').optional(),
+  gallery: z.array(galleryPhotoSchema).max(MAX_GALLERY, `Maksimal ${MAX_GALLERY} foto`).optional(),
   gifts: z
     .object({
       intro: z.string(),
@@ -142,6 +143,18 @@ export const weddingContentSchema = z.object({
     quote: z.object({ text: z.string(), source: z.string() }).optional(),
   }),
   shareMessage: z.string().max(2000, 'Pesan maksimal 2000 karakter').optional(),
+})
+
+/**
+ * Content as stored. Drafts may be unfinished, so this checks structure only:
+ * the full rules (weddingContentSchema) apply when the admin saves or publishes
+ * (data-model.md § Content validation).
+ */
+export const storedContentSchema = z.looseObject({
+  cover: z.looseObject({ background: z.looseObject({ src: z.string() }) }),
+  couple: z.looseObject({ bride: z.looseObject({}), groom: z.looseObject({}) }),
+  events: z.array(z.looseObject({})),
+  closing: z.looseObject({}),
 })
 
 export const slugSchema = z.string().superRefine((s, ctx) => {

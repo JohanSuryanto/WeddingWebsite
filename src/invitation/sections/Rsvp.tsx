@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { FormField } from '../../components/FormField'
 import { SectionShell } from '../../components/SectionShell'
 import type { Attendance } from '../../content/types'
@@ -17,6 +17,27 @@ export function Rsvp() {
   const [errors, setErrors] = useState<FieldErrors>({})
   const [status, setStatus] = useState<Status>('idle')
   const [result, setResult] = useState<RsvpResponse | null>(null)
+  /** True when the shown response is this browser's earlier one (US5-1). */
+  const [earlier, setEarlier] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    rsvpService.mine().then(
+      (mine) => {
+        if (!active || !mine) return
+        setResult(mine)
+        setName(mine.name)
+        setAttendance(mine.attendance)
+        if (mine.attendance === 'hadir') setGuestCount(mine.guestCount)
+        setEarlier(true)
+        setStatus('success')
+      },
+      () => {},
+    )
+    return () => {
+      active = false
+    }
+  }, [rsvpService])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -25,6 +46,7 @@ export function Rsvp() {
       const res = await rsvpService.submit({ name, attendance, guestCount })
       setErrors({})
       setResult(res)
+      setEarlier(false)
       setStatus('success')
     } catch (err) {
       setErrors(
@@ -56,6 +78,11 @@ export function Rsvp() {
                 ? `Kami menantikan kehadiran Anda (${result.guestCount} orang).`
                 : 'Doa restu Anda sangat berarti bagi kami.'}
             </p>
+            {earlier && (
+              <p className="mt-3 text-sm text-muted">
+                Respons Anda sudah kami terima. Kirim lagi untuk mengubahnya.
+              </p>
+            )}
             <button type="button" className="btn-outline mt-6" onClick={() => setStatus('idle')}>
               Ubah jawaban
             </button>

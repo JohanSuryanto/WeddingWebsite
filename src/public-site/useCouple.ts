@@ -1,39 +1,44 @@
-import { useEffect, useState } from 'react'
-import { coupleRepository, mediaStore } from '../data/index.public'
-import { resolveMedia } from '../data/resolveMedia'
-import type { Couple } from '../data/types'
+import { useCallback, useEffect, useState } from 'react'
+import { publicCouples } from '../data/index.public'
+import { NotFoundError, UnavailableError, type PublicCouple } from '../data/types'
 
 export type CoupleState =
   | { status: 'loading' }
   | { status: 'not-found' }
-  | { status: 'draft'; couple: Couple }
-  | { status: 'ready'; couple: Couple }
+  | { status: 'draft' }
+  | { status: 'error' }
+  | { status: 'ready'; couple: PublicCouple }
 
 type Result = Exclude<CoupleState, { status: 'loading' }>
 
-/** Loads a couple by address name, with media resolved for display. */
-export function useCouple(slug: string | undefined): CoupleState {
-  const [result, setResult] = useState<{ slug: string | undefined; value: Result } | null>(null)
+/** Loads a published couple by address name; `retry` reloads after an error (FR-024). */
+export function useCouple(slug: string | undefined): CoupleState & { retry: () => void } {
+  const [result, setResult] = useState<{ key: string; value: Result } | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const key = `${slug}#${attempt}`
 
   useEffect(() => {
     let cancelled = false
-    let dispose: (() => void) | undefined
-    const done = (value: Result) => !cancelled && setResult({ slug, value })
-    ;(async () => {
-      const couple = slug ? await coupleRepository.findBySlug(slug, { includeDrafts: true }) : null
-      if (!couple) return done({ status: 'not-found' })
-      if (couple.status !== 'active') return done({ status: 'draft', couple })
-      const resolved = await resolveMedia(couple.content, mediaStore)
-      if (cancelled) return resolved.dispose()
-      dispose = resolved.dispose
-      done({ status: 'ready', couple: { ...couple, content: resolved.content } })
-    })()
+    const done = (value: Result) => !cancelled && setResult({ key, value })
+    if (!slug) {
+      done({ status: 'not-found' })
+      return
+    }
+    publicCouples.get(slug).then(
+      (couple) => done({ status: 'ready', couple }),
+      (err) => {
+        if (err instanceof NotFoundError) done({ status: 'not-found' })
+        else if (err instanceof UnavailableError) done({ status: 'draft' })
+        else done({ status: 'error' })
+      },
+    )
     return () => {
       cancelled = true
-      dispose?.()
     }
-  }, [slug])
+  }, [slug, key])
 
-  // A result for a previous address counts as still loading.
-  return result && result.slug === slug ? result.value : { status: 'loading' }
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+  // A result for a previous address (or attempt) counts as still loading.
+  const state: CoupleState = result && result.key === key ? result.value : { status: 'loading' }
+  return { ...state, retry }
 }

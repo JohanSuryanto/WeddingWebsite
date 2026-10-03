@@ -68,6 +68,7 @@ export function TextField({
   maxLength,
   type = 'text',
   className = '',
+  inputMode,
 }: {
   path: Path
   label: string
@@ -76,6 +77,7 @@ export function TextField({
   maxLength?: number
   type?: string
   className?: string
+  inputMode?: 'numeric' | 'text'
 }) {
   const { register } = useFormContext<CoupleFormValues>()
   return (
@@ -87,6 +89,7 @@ export function TextField({
           className={`field ${className}`}
           placeholder={placeholder}
           maxLength={maxLength}
+          inputMode={inputMode}
           aria-invalid={invalid}
           aria-describedby={describedBy}
           {...register(path)}

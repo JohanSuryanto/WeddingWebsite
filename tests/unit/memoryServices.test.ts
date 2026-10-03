@@ -29,13 +29,13 @@ describe('memory RSVP service', () => {
 describe('memory wish service', () => {
   it('lists seed wishes newest first', async () => {
     const svc = createMemoryWishService(seed, 0)
-    expect((await svc.list()).map((w) => w.id)).toEqual(['new', 'old'])
+    expect((await svc.list()).items.map((w) => w.id)).toEqual(['new', 'old'])
   })
 
   it('prepends a submitted wish', async () => {
     const svc = createMemoryWishService(seed, 0)
     const wish = await svc.submit({ name: 'Andi', message: 'Selamat ya!', attendance: 'hadir' })
-    const list = await svc.list()
+    const { items: list } = await svc.list()
     expect(list[0]).toEqual(wish)
     expect(list).toHaveLength(3)
   })
@@ -44,7 +44,7 @@ describe('memory wish service', () => {
     const a = createMemoryWishService(seed, 0)
     await a.submit({ name: 'Andi', message: 'Selamat ya!' })
     const b = createMemoryWishService(seed, 0)
-    expect(await b.list()).toHaveLength(2)
+    expect((await b.list()).items).toHaveLength(2)
     expect(localStorage.length).toBe(0)
   })
 

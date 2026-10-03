@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { useToast } from '../../components/Toast'
+import { passcodeMessage } from '../../config/service'
 import { coupleSendUrl, coupleUrl } from '../../config/site'
+import { copyText } from '../../lib/clipboard'
 import { coupleRepository, ready } from '../../data/index.admin'
 import type { CoupleStatus, CoupleSummary } from '../../data/types'
 import { tryFormatDateId } from '../../lib/dateFormat'
@@ -10,6 +12,7 @@ import { CopyField } from '../components/CopyField'
 import { useLoad } from '../hooks/useLoad'
 import { useMediaUrl } from '../hooks/useMediaUrl'
 import { DeleteDialog } from './DeleteDialog'
+import { statusErrorMessage } from './statusError'
 import { StorageMeter } from './StorageMeter'
 
 const LAST_BACKUP_KEY = 'admin.lastBackupAt'
@@ -82,6 +85,20 @@ function CoupleCard({
               {couple.names}
             </h2>
             <StatusBadge status={couple.status} />
+            {couple.accessWarning && (
+              <span
+                className="rounded-full bg-[#a33a50] px-2.5 py-0.5 text-xs font-bold text-white"
+                title="Kode akses halaman kirim undangan sering salah. Pertimbangkan menggantinya."
+                data-testid="access-warning"
+              >
+                ⚠ Banyak percobaan kode
+              </span>
+            )}
+            {couple.restorePending && (
+              <span className="rounded-full bg-surface-alt px-2.5 py-0.5 text-xs font-bold text-[#a33a50]">
+                Pemulihan belum selesai
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted">
             {tryFormatDateId(couple.mainDate) || 'Tanggal belum diisi'} · Tema{' '}
@@ -114,8 +131,28 @@ function CoupleCard({
           disabled={busy}
           onClick={() =>
             run(async () => {
+              // The list has no passcodes; fetch this couple's.
+              const full = await coupleRepository.get(couple.id)
+              const text = passcodeMessage(couple.names, coupleSendUrl(couple.slug), full.passcode)
+              toast((await copyText(text)) ? 'Pesan tersalin!' : 'Gagal menyalin')
+            })
+          }
+        >
+          Salin pesan
+        </button>
+        <button
+          type="button"
+          className="btn-outline px-4 py-1 text-sm"
+          disabled={busy}
+          onClick={() =>
+            run(async () => {
               const next = couple.status === 'active' ? 'draft' : 'active'
-              await coupleRepository.setStatus(couple.id, next)
+              try {
+                await coupleRepository.setStatus(couple.id, next)
+              } catch (err) {
+                toast(statusErrorMessage(err))
+                return
+              }
               toast(next === 'active' ? 'Undangan diterbitkan' : 'Undangan dijadikan draf')
               onChanged()
             })
@@ -237,7 +274,12 @@ export function CoupleListPage() {
 
           {state.status === 'loading' && <p className="text-muted">Memuat…</p>}
           {state.status === 'error' && (
-            <p className="field-error">Gagal memuat data: {state.error.message}</p>
+            <div className="card px-4 py-6 text-center" role="alert">
+              <p className="field-error">Gagal memuat data: {state.error.message}</p>
+              <button type="button" className="btn-outline mt-3" onClick={reload}>
+                Coba lagi
+              </button>
+            </div>
           )}
           {state.status === 'ready' && (
             <>

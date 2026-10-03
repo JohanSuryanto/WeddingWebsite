@@ -16,6 +16,7 @@ export function CoupleInvitation({
   themeId,
   guestName,
   skipCover = false,
+  liveSlug,
 }: {
   /** Content with media already resolved to usable URLs. */
   content: WeddingContent
@@ -23,13 +24,17 @@ export function CoupleInvitation({
   /** Override the ?inv= guest name (admin live preview); omit to read the URL. */
   guestName?: string | null
   skipCover?: boolean
+  /** Set on the public site: RSVPs and wishes are saved for this couple. Previews omit it. */
+  liveSlug?: string
 }) {
   let body: ReactNode = <Invitation skipCover={skipCover} />
   if (guestName !== undefined) body = <GuestNameProvider name={guestName}>{body}</GuestNameProvider>
   return (
     <ThemeProvider themeId={themeId}>
       <WeddingProvider content={content}>
-        <ServicesProvider content={content}>{body}</ServicesProvider>
+        <ServicesProvider content={content} liveSlug={liveSlug}>
+          {body}
+        </ServicesProvider>
       </WeddingProvider>
     </ThemeProvider>
   )

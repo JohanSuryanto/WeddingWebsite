@@ -13,6 +13,8 @@ export function Wishes() {
   const guest = useGuestName()
   const toast = useToast()
   const [wishes, setWishes] = useState<Wish[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [name, setName] = useState(guest ?? '')
   const [message, setMessage] = useState('')
   const [attendance, setAttendance] = useState<Attendance | ''>('')
@@ -21,11 +23,33 @@ export function Wishes() {
 
   useEffect(() => {
     let active = true
-    wishService.list().then((list) => active && setWishes(list))
+    wishService.list().then(
+      (page) => {
+        if (!active) return
+        setWishes(page.items)
+        setNextCursor(page.nextCursor)
+      },
+      () => {},
+    )
     return () => {
       active = false
     }
   }, [wishService])
+
+  async function loadMore() {
+    if (!nextCursor) return
+    setLoadingMore(true)
+    try {
+      const page = await wishService.list(nextCursor)
+      // Skip any that were already shown (new wishes shift the pages).
+      setWishes((prev) => [...prev, ...page.items.filter((w) => !prev.some((p) => p.id === w.id))])
+      setNextCursor(page.nextCursor)
+    } catch {
+      toast('Gagal memuat ucapan, coba lagi.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -110,7 +134,10 @@ export function Wishes() {
         </form>
 
         <div className="card flex flex-col px-2 py-4 sm:px-4">
-          <p className="px-3 pb-2 text-sm font-bold text-muted">{wishes.length} ucapan</p>
+          <p className="px-3 pb-2 text-sm font-bold text-muted">
+            {wishes.length}
+            {nextCursor ? '+' : ''} ucapan
+          </p>
           <ul
             aria-label="Daftar ucapan"
             data-testid="wish-list"
@@ -137,6 +164,16 @@ export function Wishes() {
               </li>
             ))}
           </ul>
+          {nextCursor && (
+            <button
+              type="button"
+              className="btn-outline mx-2 mt-3 text-sm"
+              onClick={loadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? 'Memuat…' : 'Muat lebih banyak'}
+            </button>
+          )}
         </div>
       </div>
     </SectionShell>

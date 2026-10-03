@@ -1,17 +1,9 @@
-// Data wiring for the ADMIN site (admin.wedding.johansuryanto.dev).
-// Frontend-only phase: IndexedDB in the admin's browser.
-// Backend phase: replace with HttpCoupleRepository / HttpMediaStore; screens stay unchanged.
-import { openAdminDb } from './indexeddb/db'
-import { IndexedDbCoupleRepository } from './indexeddb/IndexedDbCoupleRepository'
-import { IndexedDbMediaStore } from './indexeddb/IndexedDbMediaStore'
-import { seedIfEmpty } from './indexeddb/seed'
+// Data wiring for the ADMIN site (admin.wedding.johansuryanto.dev): the shared backend.
+import { HttpCoupleRepository } from './http/HttpCoupleRepository'
+import { httpMediaStore } from './http/HttpMediaStore'
 
-const db = openAdminDb()
+export const mediaStore = httpMediaStore
+export const coupleRepository = new HttpCoupleRepository(httpMediaStore)
 
-export const mediaStore = new IndexedDbMediaStore(db)
-export const coupleRepository = new IndexedDbCoupleRepository(db, mediaStore)
-
-/** Resolves once the sample couple has been seeded on first run. */
-export const ready: Promise<void> = seedIfEmpty(coupleRepository, mediaStore).catch((err) => {
-  console.error('Seeding the sample couple failed', err)
-})
+/** Kept for callers from the browser-storage phase; the server needs no warm-up. */
+export const ready: Promise<void> = Promise.resolve()

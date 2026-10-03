@@ -3,8 +3,8 @@ import { hasErrors, validateRsvp, validateWish } from '../lib/validation'
 import { ValidationError, type RsvpResponse, type RsvpService, type WishService } from './types'
 
 /**
- * In-memory implementations for the frontend-only phase.
- * Nothing is persisted: no localStorage, cookies or network. A refresh clears it.
+ * In-memory implementations, used by the admin previews so trying the forms
+ * there never writes real responses. Nothing is persisted; a refresh clears it.
  */
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -17,6 +17,9 @@ function newId(): string {
 
 export function createMemoryRsvpService(delayMs = 400): RsvpService {
   return {
+    async mine() {
+      return null
+    },
     async submit(input) {
       const errors = validateRsvp(input)
       if (hasErrors(errors)) throw new ValidationError(errors)
@@ -33,10 +36,13 @@ export function createMemoryRsvpService(delayMs = 400): RsvpService {
 }
 
 export function createMemoryWishService(seed: Wish[] = [], delayMs = 400): WishService {
-  let wishes = [...seed].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  // Content from the server is JSON, so dates arrive as ISO strings.
+  let wishes = seed
+    .map((w) => ({ ...w, createdAt: new Date(w.createdAt) }))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   return {
     async list() {
-      return [...wishes]
+      return { items: [...wishes], nextCursor: null }
     },
     async submit(input) {
       const errors = validateWish(input)

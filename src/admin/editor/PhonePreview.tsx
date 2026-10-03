@@ -25,7 +25,7 @@ export function PhonePreview({ initialTheme }: { initialTheme: ThemeId }) {
   // Revoke cached URLs for saved media when the preview goes away.
   useEffect(() => {
     const cache = savedUrls.current
-    return () => cache.forEach((u) => URL.revokeObjectURL(u))
+    return () => cache.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u))
   }, [])
 
   // Re-send the latest draft whenever the frame (re)loads.
@@ -44,6 +44,11 @@ export function PhonePreview({ initialTheme }: { initialTheme: ThemeId }) {
     const timer = window.setTimeout(async () => {
       for (const id of collectMediaRefs(content)) {
         if (urls.has(id) || savedUrls.current.has(id)) continue
+        const url = mediaStore.urlOf(id)
+        if (url) {
+          savedUrls.current.set(id, url)
+          continue
+        }
         const blob = await mediaStore.getBlob(id)
         if (blob) savedUrls.current.set(id, URL.createObjectURL(blob))
       }

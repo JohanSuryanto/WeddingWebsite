@@ -1,18 +1,76 @@
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router'
 import { coupleUrl } from '../../config/site'
+import {
+  NotFoundError,
+  SessionExpiredError,
+  type CoupleGate,
+  type CoupleStatus,
+  type PublicCouple,
+} from '../../data/types'
 import { buildInviteUrl } from '../../lib/inviteLink'
+import { coupleAccess } from '../../services/coupleAccess'
+import { GuestResponses } from '../../send-invitation/GuestResponses'
+import { PasscodeScreen } from '../../send-invitation/PasscodeScreen'
 import { SendInvitationPage } from '../../send-invitation/SendInvitationPage'
-import { useCouple } from '../useCouple'
+import { LoadError, LoadingPage } from './LoadState'
 import { NotFound } from './NotFound'
 
-/** /:slug/send-invitation — the couple's guest-link page. */
-export function CoupleSendInvitation() {
-  const { slug } = useParams()
-  const state = useCouple(slug)
+type State =
+  | { status: 'loading' }
+  | { status: 'not-found' }
+  | { status: 'error' }
+  | { status: 'locked'; gate: CoupleGate }
+  | { status: 'ready'; couple: PublicCouple; coupleStatus: CoupleStatus }
 
-  if (state.status === 'loading') return null
-  if (state.status !== 'ready') return <NotFound />
-  const { couple } = state
+/**
+ * /:slug/send-invitation — the couple's guest-link page, behind their 4-digit
+ * passcode (US4). Nothing but the names is loaded until it's unlocked.
+ */
+export function CoupleSendInvitation() {
+  const { slug = '' } = useParams()
+  const [state, setState] = useState<State>({ status: 'loading' })
+
+  const refresh = useCallback(async () => {
+    // Two rounds: if the passcode changed since this browser unlocked, the
+    // gate is asked again and shows the passcode screen.
+    for (let round = 0; round < 2; round++) {
+      try {
+        const gate = await coupleAccess.gate(slug)
+        if (!gate.unlocked) return setState({ status: 'locked', gate })
+        const { couple, status } = await coupleAccess.load(slug)
+        return setState({ status: 'ready', couple, coupleStatus: status })
+      } catch (err) {
+        if (err instanceof SessionExpiredError && round === 0) continue
+        return setState({ status: err instanceof NotFoundError ? 'not-found' : 'error' })
+      }
+    }
+  }, [slug])
+
+  useEffect(() => {
+    // Load (or reload) whenever the address changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setState({ status: 'loading' })
+    void refresh()
+  }, [refresh])
+
+  if (state.status === 'loading') return <LoadingPage />
+  if (state.status === 'not-found') return <NotFound />
+  if (state.status === 'error') return <LoadError onRetry={() => void refresh()} />
+  if (state.status === 'locked') {
+    return (
+      <PasscodeScreen
+        names={state.gate.names}
+        initialRetryAt={state.gate.retryAt ? new Date(state.gate.retryAt) : null}
+        onSubmit={async (passcode) => {
+          await coupleAccess.unlock(slug, passcode)
+          await refresh()
+        }}
+      />
+    )
+  }
+
+  const { couple, coupleStatus } = state
   // The phone preview loads this same site, whatever address the links use.
   const localCoupleUrl = `${window.location.origin}/${couple.slug}`
   return (
@@ -21,6 +79,26 @@ export function CoupleSendInvitation() {
       coupleUrl={coupleUrl(couple.slug)}
       defaultThemeId={couple.defaultTheme}
       previewUrl={(name, code) => buildInviteUrl(localCoupleUrl, name, code)}
+      notice={
+        coupleStatus === 'draft' && (
+          <p className="rounded-lg bg-highlight px-4 py-3 text-sm font-bold text-highlight-text" role="note">
+            Undangan belum aktif — tautan sudah bisa disiapkan, tetapi tamu belum bisa membukanya.
+          </p>
+        )
+      }
+      extra={<GuestResponses slug={couple.slug} />}
+      actions={
+        <button
+          type="button"
+          className="btn-outline px-4 py-1 text-sm"
+          onClick={async () => {
+            await coupleAccess.lock(slug).catch(() => {})
+            void refresh()
+          }}
+        >
+          Keluar
+        </button>
+      }
     />
   )
 }

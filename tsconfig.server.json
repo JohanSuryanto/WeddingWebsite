@@ -1,0 +1,12 @@
+{
+  // Server-side code (Vercel function, Hono app, scripts). Node types only, no DOM,
+  // so browser-only APIs can't leak into the backend. Shared modules from src/ are
+  // pulled in through their imports.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "jsx": "react-jsx"
+  },
+  "include": ["server", "api", "scripts/**/*.ts", "drizzle.config.ts"]
+}

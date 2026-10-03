@@ -58,9 +58,23 @@ export interface SendInvitationProps {
   defaultThemeId: ThemeId
   /** Address loaded by the phone preview for a guest name and theme number. */
   previewUrl: (guestName: string, themeCode: string) => string
+  /** Shown under the heading, e.g. "Undangan belum aktif". */
+  notice?: ReactNode
+  /** Top-right actions, e.g. "Keluar" on the couple's own page. */
+  actions?: ReactNode
+  /** Below the link generator, e.g. the guest responses (US5). */
+  extra?: ReactNode
 }
 
-function SendInvitation({ content, coupleUrl, defaultThemeId, previewUrl }: SendInvitationProps) {
+function SendInvitation({
+  content,
+  coupleUrl,
+  defaultThemeId,
+  previewUrl,
+  notice,
+  actions,
+  extra,
+}: SendInvitationProps) {
   const toast = useToast()
   const [first, second] = orderedCouple(content)
   const COUPLE = `${first.nickname} & ${second.nickname}`
@@ -108,11 +122,13 @@ function SendInvitation({ content, coupleUrl, defaultThemeId, previewUrl }: Send
     <ThemeProvider themeId={themeId}>
       <div className="min-h-dvh bg-bg px-4 py-8 sm:px-6 md:py-12">
         <header className="mx-auto mb-8 max-w-6xl text-center">
+          {actions && <div className="mb-2 flex justify-end">{actions}</div>}
           <p className="font-script text-4xl text-text sm:text-5xl">{COUPLE}</p>
           <h1 className="mt-2 text-3xl text-text sm:text-4xl">Buat Link Undangan</h1>
           <p className="mx-auto mt-2 max-w-xl text-muted">
             Pilih tema, tulis nama tamu, lalu salin link atau kirim langsung lewat WhatsApp.
           </p>
+          {notice && <div className="mx-auto mt-4 max-w-xl">{notice}</div>}
         </header>
 
         <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
@@ -313,6 +329,7 @@ function SendInvitation({ content, coupleUrl, defaultThemeId, previewUrl }: Send
             />
           </aside>
         </div>
+        {extra && <div className="mx-auto mt-6 max-w-6xl">{extra}</div>}
       </div>
     </ThemeProvider>
   )
