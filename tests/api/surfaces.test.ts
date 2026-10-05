@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ADMIN_ORIGIN, adminClient, Client, makeTestApp, PUBLIC_ORIGIN } from './harness'
+import { loadEnv } from '../../server/env'
 
 const t = await makeTestApp()
 
@@ -40,5 +41,13 @@ describe('API surfaces (research R4)', () => {
     const res = await c.post('/api/admin/couples', { pad: 'x'.repeat(300 * 1024) })
     expect(res.status).toBe(413)
     expect(res.json.error.code).toBe('too_large')
+  })
+})
+
+describe('loadEnv', () => {
+  const base = { DATABASE_URL: 'pglite:memory', SESSION_SECRET: 'x'.repeat(32), PUBLIC_ORIGIN, ADMIN_ORIGIN, API_SURFACE: 'public' }
+  it('refuses local media on Vercel', () => {
+    expect(() => loadEnv({ ...base, VERCEL: '1' })).toThrow(/MEDIA_DRIVER/)
+    expect(loadEnv(base).MEDIA_DRIVER).toBe('local')
   })
 })

@@ -24,8 +24,14 @@ const envSchema = z
     PUBLIC_ORIGIN: origin,
     ADMIN_ORIGIN: origin,
     API_SURFACE: z.enum(['public', 'admin', 'both']).default('both'),
+    /** Set by Vercel on every deployment. */
+    VERCEL: z.string().optional(),
   })
   .superRefine((env, ctx) => {
+    // Local media writes to disk and mounts /api/dev/media: never on a real deployment.
+    if (env.VERCEL && env.MEDIA_DRIVER === 'local') {
+      ctx.addIssue({ code: 'custom', path: ['MEDIA_DRIVER'], message: 'harus cloudinary di Vercel' })
+    }
     if (env.MEDIA_DRIVER === 'cloudinary') {
       for (const key of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const) {
         if (!env[key]) ctx.addIssue({ code: 'custom', path: [key], message: 'wajib untuk MEDIA_DRIVER=cloudinary' })

@@ -193,7 +193,8 @@ describe('RSVP deadline and views', () => {
 
   it('counts invitation opens and shows them to the admin and the couple', async () => {
     const couple = await liveCouple('9999')
-    for (let i = 0; i < 3; i++) await guest().get(`/api/public/couples/${couple.slug}`)
+    await guest().get(`/api/public/couples/${couple.slug}`) // loading alone doesn't count (previews)
+    for (let i = 0; i < 3; i++) await guest().post(`/api/public/couples/${couple.slug}/view`)
     const list = (await admin.get('/api/admin/couples')).json.couples
     expect(list.find((x: { id: string }) => x.id === couple.id).views).toBe(3)
     expect((await admin.get(`/api/admin/couples/${couple.id}/responses`)).json.views).toBe(3)
