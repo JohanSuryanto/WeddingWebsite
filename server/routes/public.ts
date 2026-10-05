@@ -34,9 +34,15 @@ export function publicRoutes() {
     new Hono<AppEnv>()
       .get('/couples/:slug', async (c) => {
         const row = await activeCoupleBySlug(c.var.db, c.req.param('slug'))
-        // ponytail: counts every page load (refreshes too), not unique guests.
-        await c.var.db.update(couples).set({ views: sql`${couples.views} + 1` }).where(eq(couples.id, row.id))
         return c.json({ couple: toPublicCouple(row, await readyUrls(c.var.db, row.id)) })
+      })
+
+      // Sent by the invitation page itself, not by previews (they load it in a frame).
+      // ponytail: once per browser tab, not unique guests; per-visitor dedupe if it matters.
+      .post('/couples/:slug/view', async (c) => {
+        const row = await activeCoupleBySlug(c.var.db, c.req.param('slug'))
+        await c.var.db.update(couples).set({ views: sql`${couples.views} + 1` }).where(eq(couples.id, row.id))
+        return c.body(null, 204)
       })
 
       // Send-invitation passcode screen (US4): names only, drafts included.
