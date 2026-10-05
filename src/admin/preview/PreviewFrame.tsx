@@ -78,10 +78,15 @@ function LiveDraft() {
   }, [])
 
   if (!shown) return <p className="p-6 text-center text-sm text-muted">Memuat tampilan…</p>
-  return <Render shown={shown} />
+  return <Render shown={shown} onOpen={tellEditorOpened} />
 }
 
-function Render({ shown }: { shown: Shown }) {
+/** Lets the editor's Sampul/Isi toggle follow "Buka Undangan" pressed in here. */
+function tellEditorOpened() {
+  window.parent?.postMessage({ type: 'preview:opened' }, window.location.origin)
+}
+
+function Render({ shown, onOpen }: { shown: Shown; onOpen?: () => void }) {
   return (
     <PreviewErrorBoundary
       resetKey={shown}
@@ -96,6 +101,7 @@ function Render({ shown }: { shown: Shown }) {
         themeId={shown.themeId}
         guestName={shown.guestName}
         skipCover={shown.skipCover}
+        onOpen={onOpen}
       />
     </PreviewErrorBoundary>
   )
