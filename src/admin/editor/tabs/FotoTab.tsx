@@ -1,6 +1,7 @@
 import { Controller, useFormContext, useFormState } from 'react-hook-form'
 import { GalleryField } from '../../media/GalleryField'
 import { ImageField } from '../../media/ImageField'
+import { SAMPLE_BRIDE, SAMPLE_GROOM } from '../../media/samples'
 import type { CoupleFormValues } from '../formModel'
 import { Section, useFieldError } from '../fields'
 
@@ -47,6 +48,7 @@ export default function FotoTab() {
                 onChange={(v) => field.onChange(v)}
                 error={brideError}
                 testId="bride-photo-field"
+                samples={SAMPLE_BRIDE}
               />
             )}
           />
@@ -63,6 +65,7 @@ export default function FotoTab() {
                 onChange={(v) => field.onChange(v)}
                 error={groomError}
                 testId="groom-photo-field"
+                samples={SAMPLE_GROOM}
               />
             )}
           />

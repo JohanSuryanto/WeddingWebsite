@@ -12,6 +12,7 @@ export function MediaPickerDialog({
   title,
   inputId,
   multiple = false,
+  samples = kind === 'image' ? SAMPLE_PHOTOS : SAMPLE_MUSIC,
   onSamples,
   onClose,
 }: {
@@ -19,10 +20,11 @@ export function MediaPickerDialog({
   title: string
   inputId: string
   multiple?: boolean
+  /** Defaults to the general photo or music samples. */
+  samples?: readonly MediaSample[]
   onSamples: (samples: MediaSample[]) => void
   onClose: () => void
 }) {
-  const samples = kind === 'image' ? SAMPLE_PHOTOS : SAMPLE_MUSIC
   const [selected, setSelected] = useState<string[]>([])
   const [playing, setPlaying] = useState<string | null>(null)
   const audio = useRef<HTMLAudioElement | null>(null)
@@ -102,7 +104,9 @@ export function MediaPickerDialog({
       </p>
 
       {kind === 'image' ? (
-        <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Foto contoh" data-testid="sample-photos">
+        <ul
+          className="mt-3 grid max-h-[55vh] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3"
+          aria-label="Foto contoh" data-testid="sample-photos">
           {samples.map((s) => {
             const on = selected.includes(s.id)
             return (

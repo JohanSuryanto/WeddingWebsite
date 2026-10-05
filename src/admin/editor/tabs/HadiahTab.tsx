@@ -1,5 +1,6 @@
 import { Controller, useFieldArray, useFormContext } from 'react-hook-form'
 import { ImageField } from '../../media/ImageField'
+import { SAMPLE_BANKS } from '../../media/samples'
 import type { CoupleFormValues } from '../formModel'
 import { ItemControls, Section, TextArea, TextField } from '../fields'
 
@@ -57,6 +58,7 @@ function GiftDetails() {
                 <ImageField
                   label="Logo (opsional)"
                   preset="logo"
+                  samples={SAMPLE_BANKS}
                   aspect="aspect-[3/2]"
                   value={logo.value}
                   onChange={(v) => logo.onChange(v)}
