@@ -123,7 +123,7 @@ export async function listWishes(
       and(
         eq(wishes.coupleId, coupleId),
         opts.includeHidden ? undefined : eq(wishes.hidden, false),
-        after ? sql`(${wishes.createdAt}, ${wishes.id}) < (${after.createdAt}, ${after.id}::uuid)` : undefined,
+        after ? sql`(${wishes.createdAt}, ${wishes.id}) < (${after.createdAt.toISOString()}::timestamptz, ${after.id}::uuid)` : undefined,
       ),
     )
     .orderBy(desc(wishes.createdAt), desc(wishes.id))

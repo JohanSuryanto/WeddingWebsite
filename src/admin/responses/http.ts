@@ -16,6 +16,7 @@ export interface AdminResponses {
   totals: RsvpTotals
   rsvps: RsvpRecord[]
   wishes: Page<AdminWish>
+  views: number
 }
 
 export const responsesAdmin = {

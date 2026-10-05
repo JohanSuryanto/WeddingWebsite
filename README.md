@@ -6,8 +6,8 @@ A digital wedding invitation service in Indonesian: one codebase that builds **t
 
 | Website | Address (production) | Local | For |
 |---|---|---|---|
-| **Publik** | `https://wedding.johansuryanto.dev` | `http://localhost:5173` | Guests and couples: landing page, `/<pasangan>` invitations, `/<pasangan>/send-invitation` |
-| **Admin** | `https://admin.wedding.johansuryanto.dev` | `http://admin.localhost:5173` | You: login and the dashboard to set up couples |
+| **Publik** | `https://wedding.johansuryanto.dev` | `http://localhost:5177` | Guests and couples: landing page, `/<pasangan>` invitations, `/<pasangan>/send-invitation` |
+| **Admin** | `https://admin.wedding.johansuryanto.dev` | `http://admin.localhost:5177` | You: login and the dashboard to set up couples |
 
 Couples never log in to the admin. They send you their details and photos; you set them up in the dashboard and give them their send-invitation link plus a **4-digit passcode** for it.
 
@@ -39,7 +39,7 @@ npm run db:seed                                 # adds Anisa & Raka; prints its 
 npm run dev
 ```
 
-One dev server serves both sites and the API, picked by the address. Open `http://localhost:5173` (public) and `http://admin.localhost:5173` (admin). Current Chrome, Edge, Firefox and Safari 17+ resolve `*.localhost` automatically. Delete `.data/` to start over.
+One dev server serves both sites and the API, picked by the address. Open `http://localhost:5177` (public) and `http://admin.localhost:5177` (admin). Current Chrome, Edge, Firefox and Safari 17+ resolve `*.localhost` automatically. Delete `.data/` to start over.
 
 | Script | Purpose |
 |---|---|
@@ -51,7 +51,10 @@ One dev server serves both sites and the API, picked by the address. Open `http:
 | `npm run check:public-build` | Fails if admin code or server secrets ended up in a build |
 | `npm run lint` / `npm run typecheck` / `npm run format` | ESLint / TypeScript (browser + server) / Prettier |
 | `npm test` | Unit tests and API tests (real routes on an in-memory Postgres) |
+| `npm run test:pg` | The API tests on real PostgreSQL (uses the server in `DATABASE_URL`, or `TEST_DATABASE_URL`; each test file makes and drops its own `wedding_test_*` database) |
 | `npm run test:e2e` | Playwright on a fresh database: public site at 320/375/768/1366/1920 px + iPhone WebKit, admin at 375/1366. Run `npx playwright install chromium webkit` once first. |
+
+GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, lint, all tests, the build check, the API tests on PostgreSQL 18 and the Playwright suite on every push.
 
 ## Menambah pasangan · Adding a couple (admin)
 

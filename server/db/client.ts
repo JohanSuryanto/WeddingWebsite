@@ -65,9 +65,9 @@ export async function migrateDb(url: string): Promise<void> {
   await (await driver(url)).migrate()
 }
 
-/** Fresh, uncached in-memory database with migrations applied (tests). */
-export async function createMemoryDb(): Promise<{ db: Db; close: () => Promise<void> }> {
-  const d = await connect('pglite:memory')
+/** Fresh, uncached connection with migrations applied (tests): in-memory PGlite by default. */
+export async function createIsolatedDb(url = 'pglite:memory'): Promise<{ db: Db; close: () => Promise<void> }> {
+  const d = await connect(url)
   await d.migrate()
   return { db: d.db, close: d.close }
 }

@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- JSON responses in tests are checked by assertions */
 // Real Hono app + in-memory Postgres (PGlite) + local media per test file.
+import { randomUUID } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, expect } from 'vitest'
 import { createApp } from '../../server/app'
 import { hashPassword } from '../../server/auth/password'
-import { createMemoryDb, type Db } from '../../server/db/client'
+import postgres from 'postgres'
+import { createIsolatedDb, type Db } from '../../server/db/client'
 import type { Env } from '../../server/env'
 import { LocalProvider } from '../../server/media/local'
 
@@ -16,6 +18,39 @@ export const PUBLIC_ORIGIN = 'http://localhost:4817'
 export const ADMIN_ORIGIN = 'http://admin.localhost:4817'
 
 let passwordHash: Promise<string> | undefined
+
+// One hook per test file: makeTestApp is also called inside tests, where an
+// afterAll registered there would be ignored and leak the database.
+const cleanups: (() => Promise<void>)[] = []
+afterAll(async () => {
+  for (const cleanup of cleanups.splice(0)) await cleanup()
+})
+
+/**
+ * In-memory PGlite by default. With TEST_DATABASE_URL (a postgres:// URL whose user
+ * may CREATE DATABASE), each test file gets its own throwaway database on that
+ * server, so the suite also runs on real PostgreSQL (CI, or your local server).
+ */
+async function testDb(): Promise<{ db: Db; close: () => Promise<void> }> {
+  const server = process.env.TEST_DATABASE_URL
+  if (!server) return createIsolatedDb()
+  const name = `wedding_test_${randomUUID().replace(/-/g, '').slice(0, 16)}`
+  const adminUrl = new URL(server)
+  adminUrl.pathname = '/postgres'
+  const admin = postgres(adminUrl.toString(), { max: 1, onnotice: () => {} })
+  await admin.unsafe(`create database "${name}"`)
+  const url = new URL(server)
+  url.pathname = `/${name}`
+  const { db, close } = await createIsolatedDb(url.toString())
+  return {
+    db,
+    close: async () => {
+      await close()
+      await admin.unsafe(`drop database if exists "${name}" with (force)`)
+      await admin.end()
+    },
+  }
+}
 
 export interface TestApp {
   app: ReturnType<typeof createApp>
@@ -28,7 +63,7 @@ export interface TestApp {
 
 export async function makeTestApp(overrides: Partial<Env> = {}): Promise<TestApp> {
   const dir = await mkdtemp(join(tmpdir(), 'wedding-media-'))
-  const { db, close } = await createMemoryDb()
+  const { db, close } = await testDb()
   passwordHash ??= hashPassword(ADMIN_PASSWORD)
   const env: Env = {
     DATABASE_URL: 'pglite:memory',
@@ -45,7 +80,7 @@ export async function makeTestApp(overrides: Partial<Env> = {}): Promise<TestApp
     ...overrides,
   }
   const media = new LocalProvider(dir, env.SESSION_SECRET)
-  afterAll(async () => {
+  cleanups.push(async () => {
     await close()
     await rm(dir, { recursive: true, force: true })
   })

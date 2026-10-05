@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { RSVP_DEADLINE_PATTERN } from '../lib/rsvpDeadline'
 import { MAX_GALLERY } from './mediaLimits'
 import { validateSlug } from './slug'
 
@@ -143,6 +144,7 @@ export const weddingContentSchema = z.object({
     quote: z.object({ text: z.string(), source: z.string() }).optional(),
   }),
   shareMessage: z.string().max(2000, 'Pesan maksimal 2000 karakter').optional(),
+  rsvpDeadline: z.union([z.literal(''), z.string().regex(RSVP_DEADLINE_PATTERN, 'Tanggal tidak valid')]).optional(),
 })
 
 /**

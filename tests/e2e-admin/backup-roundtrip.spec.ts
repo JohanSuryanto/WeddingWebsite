@@ -35,10 +35,16 @@ test('a full backup brings a deleted couple back with photos and responses (US7,
 
   // Download the full backup.
   await page.goto('/backup')
-  const [download] = await Promise.all([
-    page.waitForEvent('download', { timeout: 120_000 }),
-    page.getByRole('button', { name: 'Unduh Cadangan' }).click(),
-  ])
+  const downloading = page.waitForEvent('download', { timeout: 120_000 })
+  await page.getByRole('button', { name: 'Unduh Cadangan' }).click()
+  // An export error shows as an alert; fail with its text instead of a bare timeout.
+  const alert = page.getByRole('alert')
+  const failed = alert.waitFor({ timeout: 120_000 }).then(async () => {
+    throw new Error(`Export failed: ${await alert.innerText()}`)
+  })
+  // The loser of the race rejects when the page closes; don't report that.
+  for (const p of [downloading, failed]) p.catch(() => {})
+  const download = await Promise.race([downloading, failed])
   expect(download.suggestedFilename()).toMatch(/^undangan-backup-\d{8}-\d{4}\.json$/)
   const file = await download.path()
 
