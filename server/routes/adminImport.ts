@@ -9,7 +9,7 @@ import { firstContentProblem, storedContentSchema, themeIdSchema } from '../../s
 import { validateSlug } from '../../src/data/slug'
 import { coupleNotFound, deleteCouple, findRowBySlug, getCoupleRow, toCouple } from '../db/repos/couples'
 import { assertReferencesReady, deleteMediaRows, toInfo } from '../db/repos/media'
-import { couples, media, rsvps, wishes } from '../db/schema'
+import { couples, guests, media, rsvps, wishes } from '../db/schema'
 import type { Db } from '../db/client'
 import { slugTaken, validation } from '../http/errors'
 import { fieldErrors, readJson } from '../http/validate'
@@ -69,6 +69,18 @@ const responsesBody = z.object({
       }),
     )
     .max(5000),
+  /** Added after v2 shipped; older files have none. */
+  guests: z
+    .array(
+      z.object({
+        id: uuid,
+        name: z.string().min(1).max(200),
+        position: z.number().int().min(0),
+        sentAt: iso.nullable(),
+      }),
+    )
+    .max(1000)
+    .optional(),
 })
 
 const finishBody = z.object({ status: z.enum(['draft', 'active']) })
@@ -79,6 +91,7 @@ async function exportDocument(db: Db) {
   const mediaRows = await db.select().from(media).where(eq(media.status, 'ready'))
   const rsvpRows = await db.select().from(rsvps)
   const wishRows = await db.select().from(wishes)
+  const guestRows = await db.select().from(guests)
   return {
     format: 'wedding-admin-backup' as const,
     formatVersion: 2 as const,
@@ -103,6 +116,13 @@ async function exportDocument(db: Db) {
       attendance: w.attendance,
       hidden: w.hidden,
       createdAt: w.createdAt.toISOString(),
+    })),
+    guests: guestRows.map((g) => ({
+      id: g.id,
+      coupleId: g.coupleId,
+      name: g.name,
+      position: g.position,
+      sentAt: g.sentAt?.toISOString() ?? null,
     })),
   }
 }
@@ -253,7 +273,23 @@ export function adminImportRoutes() {
             .returning({ id: wishes.id })
           inserted += rows.length
         }
-        return c.json({ inserted, skipped: body.rsvps.length + body.wishes.length - inserted })
+        const guestList = body.guests ?? []
+        if (guestList.length) {
+          const rows = await c.var.db
+            .insert(guests)
+            .values(
+              guestList.map((g) => ({
+                ...g,
+                coupleId: couple.id,
+                sentAt: g.sentAt ? new Date(g.sentAt) : null,
+              })),
+            )
+            .onConflictDoNothing()
+            .returning({ id: guests.id })
+          inserted += rows.length
+        }
+        const total = body.rsvps.length + body.wishes.length + guestList.length
+        return c.json({ inserted, skipped: total - inserted })
       })
 
       .post('/import/couples/:id/finish', async (c) => {

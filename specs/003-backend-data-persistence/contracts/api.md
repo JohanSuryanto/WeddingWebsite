@@ -101,6 +101,14 @@ If the cookie is missing, invalid, expired, or carries an older `passcode_versio
 ### `GET /api/couple/:slug/rsvps.csv`
 - **200** `text/csv; charset=utf-8` with a byte-order mark. `Content-Disposition: attachment; filename="rsvp-<slug>-YYYYMMDD.csv"` (research R16).
 
+### Guest list (`/api/couple/:slug/guests`)
+The couple's saved guest names on the send-invitation page, shared with the admin (`/api/admin/couples/:id/guests`, same routes).
+| Method & path | Responses |
+|---|---|
+| `GET …/guests` | **200** `{ guests: { id, name, sentAt }[] }` in the couple's order |
+| `PUT …/guests` `{ names: string[] }` | **200** the new list. Max 1000 names of 200 characters; cleaned like the page (spaces collapsed, blanks dropped). A name that stays keeps its id and `sentAt`; repeated names match in order |
+| `PATCH …/guests/:guestId` `{ sent }` | **200** `{ guest }`. `sentAt` set to now, or cleared. **404** for another couple's guest |
+
 ### `POST /api/couple/:slug/lock`
 - **204**. Clears `wc_<coupleId>` ("Keluar" on the couple page).
 

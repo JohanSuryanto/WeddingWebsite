@@ -1,32 +1,37 @@
 import { expect, test } from '@playwright/test'
-import { openSendInvitation } from './helpers'
+import { adminApi, duplicateSample, openSendInvitation } from './helpers'
 
-test('/anisa-raka/send-invitation builds per-guest links that open the right invitation', async ({
+test('/<slug>/send-invitation builds per-guest links that open the right invitation', async ({
   page,
   context,
   browserName,
+  playwright,
 }) => {
   if (browserName === 'chromium') {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   }
-  await openSendInvitation(page)
+  // Its own published copy: the guest list is saved per couple, so the shared
+  // sample would start with names another viewport typed.
+  const api = await adminApi(playwright)
+  const { id, slug, passcode } = await duplicateSample(api)
+  await api.post(`/api/admin/couples/${id}/status`, { data: { status: 'active' } })
+  await api.dispose()
+  await openSendInvitation(page, slug, passcode)
   await expect(page.getByRole('heading', { name: 'Buat Link Undangan' })).toBeVisible()
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/)
 
   // Without names there is one general link.
   const links = page.getByTestId('invite-link')
   await expect(links).toHaveCount(1)
-  await expect(links.first()).toHaveText(/^http:\/\/localhost:4817\/anisa-raka\?t=\d$/)
+  await expect(links.first()).toHaveText(new RegExp(`^http://localhost:4817/${slug}\\?t=\\d$`))
 
   await page.getByRole('radio', { name: /2\. Elegant Classic/ }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'elegant-classic')
 
   await page.getByLabel('Satu nama per baris').fill('Budi Santoso\n\n  Johan & Partner  \n')
   await expect(links).toHaveCount(2)
-  await expect(links.nth(0)).toHaveText('http://localhost:4817/anisa-raka?inv=Budi+Santoso&t=2')
-  await expect(links.nth(1)).toHaveText(
-    'http://localhost:4817/anisa-raka?inv=Johan+%26+Partner&t=2',
-  )
+  await expect(links.nth(0)).toHaveText(`http://localhost:4817/${slug}?inv=Budi+Santoso&t=2`)
+  await expect(links.nth(1)).toHaveText(`http://localhost:4817/${slug}?inv=Johan+%26+Partner&t=2`)
 
   // Live preview is the real invitation page, following the selected guest and theme.
   const preview = page.frameLocator('[data-testid="cover-preview"]')
@@ -39,7 +44,7 @@ test('/anisa-raka/send-invitation builds per-guest links that open the right inv
   const wa = page.getByRole('link', { name: 'WhatsApp' }).nth(1)
   const text = new URL((await wa.getAttribute('href'))!).searchParams.get('text')!
   expect(text).toContain('Johan & Partner')
-  expect(text).toContain('/anisa-raka?inv=Johan+%26+Partner&t=2')
+  expect(text).toContain(`/${slug}?inv=Johan+%26+Partner&t=2`)
   expect(text).not.toMatch(/\{(nama|link|mempelai|tanggal)\}/)
 
   // Copy the link and open it like a guest would.

@@ -62,6 +62,14 @@ const wishSchema = z.object({
   createdAt: z.string(),
 })
 
+const guestSchema = z.object({
+  id: z.string().min(1),
+  coupleId: z.string().min(1),
+  name: z.string().min(1).max(200),
+  position: z.number().int().min(0),
+  sentAt: z.string().nullable(),
+})
+
 const backupSchema = z.object({
   format: z.literal(BACKUP_FORMAT),
   formatVersion: z
@@ -75,6 +83,8 @@ const backupSchema = z.object({
   media: z.array(mediaSchema),
   rsvps: z.array(rsvpSchema).optional(),
   wishes: z.array(wishSchema).optional(),
+  /** The send-invitation guest list; files from before it existed have none. */
+  guests: z.array(guestSchema).optional(),
 })
 
 export class BackupError extends Error {
@@ -119,12 +129,21 @@ export interface BackupWish {
   createdAt: string
 }
 
+export interface BackupGuest {
+  id: string
+  coupleId: string
+  name: string
+  position: number
+  sentAt: string | null
+}
+
 export interface ParsedBackup {
   formatVersion: number
   couples: BackupCouple[]
   media: BackupMedia[]
   rsvps: BackupRsvp[]
   wishes: BackupWish[]
+  guests: BackupGuest[]
   totalBytes: number
   createdAt: string
 }
@@ -177,6 +196,7 @@ export async function parseBackup(file: Blob): Promise<ParsedBackup> {
     media,
     rsvps: result.data.rsvps ?? [],
     wishes: (result.data.wishes ?? []) as BackupWish[],
+    guests: result.data.guests ?? [],
     totalBytes: media.reduce((n, m) => n + m.size, 0),
     createdAt: result.data.createdAt,
   }
@@ -188,6 +208,7 @@ export interface CoupleBundle {
   media: BackupMedia[]
   rsvps: BackupRsvp[]
   wishes: BackupWish[]
+  guests: BackupGuest[]
 }
 
 export function bundleFor(parsed: ParsedBackup, coupleId: string): CoupleBundle {
@@ -198,6 +219,7 @@ export function bundleFor(parsed: ParsedBackup, coupleId: string): CoupleBundle 
     media: parsed.media.filter((m) => m.coupleId === coupleId),
     rsvps: parsed.rsvps.filter((r) => r.coupleId === coupleId),
     wishes: parsed.wishes.filter((w) => w.coupleId === coupleId),
+    guests: parsed.guests.filter((g) => g.coupleId === coupleId),
   }
 }
 
@@ -228,6 +250,7 @@ export function planKeepBoth(bundle: CoupleBundle, takenSlugs: ReadonlySet<strin
     media: bundle.media.map((m) => ({ ...m, id: idMap.get(m.id)!, coupleId })),
     rsvps: bundle.rsvps.map((r) => ({ ...r, id: newId(), coupleId })),
     wishes: bundle.wishes.map((w) => ({ ...w, id: newId(), coupleId })),
+    guests: bundle.guests.map((g) => ({ ...g, id: newId(), coupleId })),
   }
 }
 
@@ -241,6 +264,7 @@ export interface BackupDocument {
   media: (Omit<BackupMedia, 'blob'> & { data: string })[]
   rsvps: BackupRsvp[]
   wishes: BackupWish[]
+  guests: BackupGuest[]
 }
 
 export function backupFileName(date = new Date()): string {

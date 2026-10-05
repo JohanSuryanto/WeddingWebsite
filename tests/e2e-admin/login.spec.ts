@@ -27,10 +27,11 @@ test('wrong credentials show an error and clear the password', async ({ page }) 
   await expect(page.getByLabel('Kata sandi')).toHaveValue('')
 })
 
-test('logout ends the session and the guard applies again', async ({ page }) => {
+test('logout ends the session and the guard applies again', async ({ page, isMobile }) => {
   await login(page)
-  const logout = page.getByRole('button', { name: 'Keluar' })
-  if (!(await logout.isVisible())) await page.getByRole('button', { name: 'Menu' }).click()
+  // Phones keep "Keluar" in the menu. (Not isVisible(): right after login the
+  // header may not be drawn yet, which sent desktop runs looking for a menu.)
+  if (isMobile) await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: 'Keluar' }).first().click()
   await expect(page).toHaveURL(/\/login$/)
   await page.goto('/')

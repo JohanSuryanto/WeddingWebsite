@@ -6,6 +6,7 @@ import { deleteRsvp, deleteWish, listRsvps, responsesFor, setWishHidden, toWireW
 import { readJson } from '../http/validate'
 import type { AppEnv } from '../types'
 import { csvResponse } from './couple'
+import { guestRoutes } from './guests'
 
 const hideBody = z.object({ hidden: z.boolean() })
 
@@ -33,6 +34,12 @@ export function adminResponsesRoutes() {
       const { hidden } = await readJson(c, hideBody)
       return c.json({ wish: toWireWish(await setWishHidden(c.var.db, c.req.param('id'), hidden), true) })
     })
+
+    // The couple's guest list (the same one their passcode page edits).
+    .route(
+      '/couples/:id/guests',
+      guestRoutes(async (c) => (await getCoupleRow(c.var.db, c.req.param('id') ?? '')).id),
+    )
 
     .delete('/wishes/:id', async (c) => {
       await deleteWish(c.var.db, c.req.param('id'))
