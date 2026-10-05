@@ -1,14 +1,17 @@
 // /api/public/* — no login (contracts/api.md § Public).
 import { Hono } from 'hono'
+import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { PASSCODE_PATTERN } from '../../src/data/passcode'
+import { rsvpClosed } from '../../src/lib/rsvpDeadline'
 import { hasCoupleAccess, passcodePausedUntil, unlockCouple } from '../auth/coupleAccess'
 import { existingVisitorHash, ipHash, visitorHash } from '../auth/visitor'
 import { activeCoupleBySlug, coupleBySlug, coupleNames } from '../db/repos/couples'
 import { readyUrls } from '../db/repos/media'
 import { PER_BROWSER, PER_IP, hit } from '../db/repos/rateLimits'
 import { addWish, listWishes, myRsvp, toWireWish, upsertRsvp } from '../db/repos/responses'
-import { unauthenticated } from '../http/errors'
+import { couples } from '../db/schema'
+import { unauthenticated, validation } from '../http/errors'
 import { readJson } from '../http/validate'
 import { toPublicCouple } from '../lib/publicContent'
 import type { AppEnv } from '../types'
@@ -31,6 +34,8 @@ export function publicRoutes() {
     new Hono<AppEnv>()
       .get('/couples/:slug', async (c) => {
         const row = await activeCoupleBySlug(c.var.db, c.req.param('slug'))
+        // ponytail: counts every page load (refreshes too), not unique guests.
+        await c.var.db.update(couples).set({ views: sql`${couples.views} + 1` }).where(eq(couples.id, row.id))
         return c.json({ couple: toPublicCouple(row, await readyUrls(c.var.db, row.id)) })
       })
 
@@ -65,6 +70,10 @@ export function publicRoutes() {
       .post('/couples/:slug/rsvp', async (c) => {
         const body = await readJson(c, rsvpBody)
         const row = await activeCoupleBySlug(c.var.db, c.req.param('slug'))
+        if (rsvpClosed(row.content.rsvpDeadline)) {
+          const message = 'Konfirmasi kehadiran sudah ditutup'
+          throw validation(message, { fields: { form: message } })
+        }
         const visitor = visitorHash(c)
         await hit(c.var.db, `rsvp:${row.id}:${visitor}`, PER_BROWSER)
         await hit(c.var.db, `ip:${row.id}:${ipHash(c)}`, PER_IP)

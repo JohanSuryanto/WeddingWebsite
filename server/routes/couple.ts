@@ -32,12 +32,13 @@ export function coupleRoutes() {
 
       // The couple's own responses, read only (FR-019); hidden wishes stay hidden.
       .get('/:slug/responses', async (c) =>
-        c.json(
-          await responsesFor(c.var.db, c.var.couple!.id, {
+        c.json({
+          ...(await responsesFor(c.var.db, c.var.couple!.id, {
             includeHidden: false,
             wishesCursor: c.req.query('wishesCursor'),
-          }),
-        ),
+          })),
+          views: c.var.couple!.views,
+        }),
       )
 
       .get('/:slug/rsvps.csv', async (c) => {

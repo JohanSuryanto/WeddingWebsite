@@ -4,14 +4,15 @@ import type { RsvpRecord, RsvpTotals } from '../data/types'
 import { formatRelativeId } from '../lib/dateFormat'
 
 /** Totals cards: Hadir, Tidak hadir, Total tamu (US5-5). */
-export function ResponseTotals({ totals }: { totals: RsvpTotals }) {
+export function ResponseTotals({ totals, views }: { totals: RsvpTotals; views?: number }) {
   const cards = [
+    ...(views === undefined ? [] : [{ label: 'Dibuka', value: views }]),
     { label: 'Hadir', value: totals.attending },
     { label: 'Tidak hadir', value: totals.notAttending },
     { label: 'Total tamu', value: totals.people },
   ]
   return (
-    <dl className="grid grid-cols-3 gap-3" data-testid="rsvp-totals">
+    <dl className={`grid gap-3 ${views === undefined ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`} data-testid="rsvp-totals">
       {cards.map((c) => (
         <div key={c.label} className="rounded-xl bg-surface-alt px-3 py-3 text-center">
           <dt className="text-xs font-bold text-muted uppercase">{c.label}</dt>
