@@ -70,7 +70,9 @@ export default defineConfig({
       { name: 'tablet-768', use: { ...desktop, viewport: { width: 768, height: 1024 } } },
       { name: 'desktop-1366', use: { ...desktop, viewport: { width: 1366, height: 768 } } },
       { name: 'desktop-1920', use: { ...desktop, viewport: { width: 1920, height: 1080 } } },
-      { name: 'iphone-webkit', use: { ...devices['iPhone 13'] } },
+      // Reduced motion: with smooth scrolling, WebKit clicks can land mid-scroll and miss
+      // (seen in CI). The Chromium projects still cover the animations.
+      { name: 'iphone-webkit', use: { ...devices['iPhone 13'], reducedMotion: 'reduce' as const } },
     ].map((p) => ({
       ...p,
       testDir: './tests/e2e',
