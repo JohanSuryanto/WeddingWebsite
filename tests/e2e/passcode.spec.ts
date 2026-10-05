@@ -32,6 +32,7 @@ test('the send-invitation page stays locked until the right passcode (US4, SC-00
   await expect(page.getByRole('heading', { name: 'Buat Link Undangan' })).toBeVisible()
   // A draft can be prepared, with a notice (US4-8).
   await expect(page.getByRole('note')).toContainText('Undangan belum aktif')
+  await expect(page.getByTestId('qr-code')).toBeVisible()
 
   await page.getByLabel('Satu nama per baris').fill('Pak Andi')
   const link = (await page.getByTestId('invite-link').first().textContent())!

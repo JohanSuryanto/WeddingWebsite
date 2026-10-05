@@ -13,9 +13,10 @@ export function adminResponsesRoutes() {
   return new Hono<AppEnv>()
     .get('/couples/:id/responses', async (c) => {
       const couple = await getCoupleRow(c.var.db, c.req.param('id'))
-      return c.json(
-        await responsesFor(c.var.db, couple.id, { includeHidden: true, wishesCursor: c.req.query('wishesCursor') }),
-      )
+      return c.json({
+        ...(await responsesFor(c.var.db, couple.id, { includeHidden: true, wishesCursor: c.req.query('wishesCursor') })),
+        views: couple.views,
+      })
     })
 
     .get('/couples/:id/rsvps.csv', async (c) => {

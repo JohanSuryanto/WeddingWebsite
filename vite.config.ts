@@ -27,6 +27,8 @@ function adminIndexCopy(): Plugin {
 
 export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss(), devHostRouting(), apiDevServer(), adminIndexCopy()],
+  // Fixed dev port (both localhost:5177 and admin.localhost:5177).
+  server: { port: 5177, strictPort: true },
   // The admin build gets its own static files (host rewrites, favicon).
   publicDir: command === 'build' && site === 'admin' ? 'admin-static' : 'public',
   build: {

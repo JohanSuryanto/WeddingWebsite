@@ -70,6 +70,7 @@ function summarize(row: CoupleRow, accessWarning: boolean, coverUrls: Map<string
     coverSrc: cover && isMediaRef(cover) ? (coverUrls.get(mediaId(cover)) ?? null) : cover,
     accessWarning,
     restorePending: row.restorePending,
+    views: row.views,
   }
 }
 

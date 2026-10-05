@@ -164,6 +164,10 @@ export default function AcaraTab() {
       >
         + Tambah Acara
       </button>
+      <Section title="Konfirmasi kehadiran">
+        <TextField path="content.rsvpDeadline" label="Batas konfirmasi kehadiran (opsional)" type="date" />
+        <p className="text-sm text-muted">Setelah tanggal ini (WIB), tamu tidak bisa mengirim konfirmasi lagi.</p>
+      </Section>
     </div>
   )
 }

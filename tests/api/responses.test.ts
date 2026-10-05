@@ -175,3 +175,30 @@ describe('reading responses', () => {
     expect(csv.text).toContain('Pak Andi,Hadir,2,')
   })
 })
+
+describe('RSVP deadline and views', () => {
+  it('refuses RSVPs after the deadline day (WIB) but keeps wishes open', async () => {
+    const res = await admin.post('/api/admin/couples', {
+      slug: `tutup-${++n}`,
+      defaultTheme: 'romantic-floral',
+      content: { ...anisaRaka, rsvpDeadline: '2020-01-01' },
+    })
+    const couple = res.json.couple
+    await admin.post(`/api/admin/couples/${couple.id}/status`, { status: 'active' })
+    const refused = await rsvp(guest(), couple.slug, { name: 'Pak Andi', attendance: 'hadir', guestCount: 1 })
+    expect(refused.status).toBe(422)
+    expect(refused.json.error.fields.form).toBe('Konfirmasi kehadiran sudah ditutup')
+    expect((await wish(guest(), couple.slug, { name: 'Pak Andi', message: 'Selamat ya!' })).status).toBe(201)
+  })
+
+  it('counts invitation opens and shows them to the admin and the couple', async () => {
+    const couple = await liveCouple('9999')
+    for (let i = 0; i < 3; i++) await guest().get(`/api/public/couples/${couple.slug}`)
+    const list = (await admin.get('/api/admin/couples')).json.couples
+    expect(list.find((x: { id: string }) => x.id === couple.id).views).toBe(3)
+    expect((await admin.get(`/api/admin/couples/${couple.id}/responses`)).json.views).toBe(3)
+    const c = guest()
+    await c.post(`/api/public/couples/${couple.slug}/unlock`, { passcode: '9999' })
+    expect((await c.get(`/api/couple/${couple.slug}/responses`)).json.views).toBe(3)
+  })
+})

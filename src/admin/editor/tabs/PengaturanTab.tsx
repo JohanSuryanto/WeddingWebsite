@@ -1,4 +1,5 @@
 import { Controller, useFormContext } from 'react-hook-form'
+import { QrCode } from '../../../components/QrCode'
 import { useToast } from '../../../components/Toast'
 import { passcodeMessage } from '../../../config/service'
 import { coupleSendUrl, coupleUrl } from '../../../config/site'
@@ -72,6 +73,7 @@ export default function PengaturanTab() {
           <CopyField label="Kirim undangan" value={coupleSendUrl(couple.slug)} />
         </div>
         {slugChanged && <p className="text-sm text-muted">Alamat baru berlaku setelah disimpan.</p>}
+        <QrCode url={coupleUrl(couple.slug)} fileName={`qr-${couple.slug}`} />
       </Section>
 
       <Section title="Kode akses halaman kirim undangan">

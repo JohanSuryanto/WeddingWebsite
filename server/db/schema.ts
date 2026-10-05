@@ -34,6 +34,8 @@ export const couples = pgTable(
     passcode: char('passcode', { length: 4 }).notNull(),
     passcodeVersion: integer('passcode_version').notNull().default(1),
     restorePending: boolean('restore_pending').notNull().default(false),
+    /** Times guests opened the invitation (public reads). */
+    views: integer('views').notNull().default(0),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

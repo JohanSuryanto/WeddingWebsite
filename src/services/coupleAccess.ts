@@ -24,6 +24,7 @@ export interface CoupleResponses {
   totals: RsvpTotals
   rsvps: RsvpRecord[]
   wishes: Page<CoupleWish>
+  views: number
 }
 
 const enc = encodeURIComponent

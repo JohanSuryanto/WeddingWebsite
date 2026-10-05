@@ -85,7 +85,7 @@ export default function ResponsTab() {
   return (
     <div className="space-y-4">
       <Section title="Konfirmasi kehadiran">
-        <ResponseTotals totals={data.totals} />
+        <ResponseTotals totals={data.totals} views={data.views} />
         <div className="flex flex-wrap gap-2">
           <a href={responsesAdmin.csvUrl(couple.id)} download className="btn-outline px-4 py-1 text-sm">
             Unduh CSV

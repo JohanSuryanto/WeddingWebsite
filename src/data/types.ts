@@ -37,6 +37,8 @@ export type CoupleSummary = Pick<
   accessWarning: boolean
   /** A backup restore started but did not finish for this couple. */
   restorePending: boolean
+  /** Times guests opened the invitation. */
+  views: number
 }
 
 /** What the public site receives: media already resolved to absolute URLs. */
