@@ -39,8 +39,12 @@ export function PasscodeScreen({
     return () => window.clearInterval(id)
   }, [retryAt])
 
+  // Focus the first box when the screen opens or the pause ends, unless typing has
+  // already started: a late effect stealing focus back would drop the next digits.
   useEffect(() => {
-    if (!locked) inputs.current[0]?.focus()
+    if (!locked && !inputs.current.includes(document.activeElement as HTMLInputElement)) {
+      inputs.current[0]?.focus()
+    }
   }, [locked])
 
   async function submit(code: string) {
