@@ -68,12 +68,13 @@ async function restoreOne(bundle: CoupleBundle, mode: 'create' | 'replace', onPr
     await mediaStore.put(couple.id, m.blob, { kind: m.kind, width: m.width, height: m.height, id: m.id })
     onProgress(i + 1, pending.length)
   }
-  if (bundle.rsvps.length || bundle.wishes.length) {
+  if (bundle.rsvps.length || bundle.wishes.length || bundle.guests.length) {
     await apiFetch(`/admin/import/couples/${couple.id}/responses`, {
       method: 'POST',
       body: {
         rsvps: bundle.rsvps.map(({ coupleId: _c, ...r }) => (void _c, r)),
         wishes: bundle.wishes.map(({ coupleId: _c, ...w }) => (void _c, w)),
+        guests: bundle.guests.map(({ coupleId: _c, ...g }) => (void _c, g)),
       },
     })
   }

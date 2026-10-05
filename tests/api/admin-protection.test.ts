@@ -36,6 +36,10 @@ const PROTECTED: [method: string, path: string][] = [
   ['PUT', `/api/admin/import/couples/${ID}`],
   ['POST', `/api/admin/import/couples/${ID}/responses`],
   ['POST', `/api/admin/import/couples/${ID}/finish`],
+  // Guest list
+  ['GET', `/api/admin/couples/${ID}/guests`],
+  ['PUT', `/api/admin/couples/${ID}/guests`],
+  ['PATCH', `/api/admin/couples/${ID}/guests/${ID}`],
 ]
 
 const OPEN = new Set(['POST /api/admin/login', 'POST /api/admin/logout', 'GET /api/admin/session'])
@@ -85,7 +89,10 @@ describe('admin routes refuse requests without a valid session (FR-006, SC-002)'
 
   it('the table above lists every admin route', () => {
     const listed = new Set(
-      PROTECTED.map(([m, p]) => `${m} ${p.replace(ID, ':id').replace('/by-slug/x', '/by-slug/:slug')}`),
+      PROTECTED.map(
+        ([m, p]) =>
+          `${m} ${p.replace(ID, ':id').replace(ID, ':guestId').replace('/by-slug/x', '/by-slug/:slug')}`,
+      ),
     )
     const missing = t.app.routes
       .filter((r) => r.method !== 'ALL' && r.path.startsWith('/api/admin/'))

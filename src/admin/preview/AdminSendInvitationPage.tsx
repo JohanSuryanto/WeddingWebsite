@@ -1,8 +1,10 @@
+import { useMemo } from 'react'
 import { Link, useParams } from 'react-router'
 import { MessagePage } from '../../components/MessagePage'
 import { coupleUrl } from '../../config/site'
 import { coupleRepository, mediaStore, ready } from '../../data/index.admin'
 import { resolveMedia } from '../../data/resolveMedia'
+import { adminGuestList } from '../../send-invitation/guestList'
 import { SendInvitationPage } from '../../send-invitation/SendInvitationPage'
 import { useLoad } from '../hooks/useLoad'
 
@@ -13,6 +15,7 @@ import { useLoad } from '../hooks/useLoad'
  */
 export default function AdminSendInvitationPage() {
   const { id = '' } = useParams()
+  const guestList = useMemo(() => adminGuestList(id), [id])
   const { state } = useLoad(async () => {
     await ready
     const couple = await coupleRepository.get(id)
@@ -39,6 +42,7 @@ export default function AdminSendInvitationPage() {
         previewUrl={(name, code) =>
           `/preview-frame?${new URLSearchParams({ couple: couple.id, inv: name, t: code })}`
         }
+        guestList={guestList}
       />
     </>
   )

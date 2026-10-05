@@ -41,7 +41,7 @@ test('the Respons tab shows guest responses; hiding a wish hides it publicly; CS
   await expect(page.getByTestId('rsvp-list')).toContainText('Pak Andi')
   const item = page.getByTestId('admin-wish-list').locator('li').filter({ hasText: message })
   await item.getByRole('button', { name: 'Sembunyikan' }).click()
-  await expect(item.getByText('Disembunyikan')).toBeVisible()
+  await expect(item.getByText('Disembunyikan', { exact: true })).toBeVisible()
 
   await guest.reload()
   await guest.getByRole('button', { name: 'Buka Undangan' }).click()

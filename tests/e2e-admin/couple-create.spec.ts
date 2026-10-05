@@ -58,4 +58,9 @@ test('the list shows both addresses with copy buttons; preview and links use the
   )
   const preview = page.frameLocator('[data-testid=cover-preview]')
   await expect(preview.getByTestId('guest-name')).toHaveText('Johan & Partner')
+
+  // The names are saved for this couple (the same list as on their passcode page).
+  await expect(page.getByTestId('guest-list-status')).toHaveText('Daftar tamu tersimpan otomatis.')
+  await page.reload()
+  await expect(page.getByLabel('Satu nama per baris')).toHaveValue('Johan & Partner')
 })

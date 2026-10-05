@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PhoneFrame } from '../components/PhoneFrame'
 import { ToastProvider, useToast } from '../components/Toast'
 import { mainEvent, orderedCouple } from '../content/selectors'
@@ -15,6 +15,7 @@ import {
 import { GUEST_NAME_MAX } from '../lib/guestName'
 import { resolveThemeId, ThemeProvider, themes } from '../themes'
 import type { ThemeId } from '../themes/types'
+import { matchGuests, type Guest, type GuestListApi } from './guestList'
 
 const FALLBACK_MESSAGE = 'Kepada Yth.\n{nama}\n\nKami mengundang Anda ke pernikahan kami:\n{link}'
 
@@ -64,6 +65,8 @@ export interface SendInvitationProps {
   actions?: ReactNode
   /** Below the link generator, e.g. the guest responses (US5). */
   extra?: ReactNode
+  /** Saves the names and marks who was sent a link. Must be stable (useMemo). */
+  guestList?: GuestListApi
 }
 
 function SendInvitation({
@@ -74,6 +77,7 @@ function SendInvitation({
   notice,
   actions,
   extra,
+  guestList,
 }: SendInvitationProps) {
   const toast = useToast()
   const [first, second] = orderedCouple(content)
@@ -89,12 +93,81 @@ function SendInvitation({
   const [namesText, setNamesText] = useState('')
   const [template, setTemplate] = useState(() => load(templateKey) ?? DEFAULT_TEMPLATE)
   const [previewIndex, setPreviewIndex] = useState(0)
+  const [guests, setGuests] = useState<Guest[]>([])
+  const [listState, setListState] = useState<'loading' | 'ready' | 'saving' | 'error' | 'load-error'>(
+    guestList ? 'loading' : 'ready',
+  )
+  const [hideSent, setHideSent] = useState(false)
+  const saveSeq = useRef(0)
 
   const theme = themes[themeId]
   const names = useMemo(() => parseGuestList(namesText), [namesText])
   // With no names yet, offer one general link ("Bapak/Ibu/Saudara/i").
   const rows = names.length ? names : ['']
   const previewName = rows[Math.min(previewIndex, rows.length - 1)] || null
+  const matched = useMemo(() => matchGuests(names, guests), [names, guests])
+  const sentCount = matched.filter((g) => g?.sentAt).length
+  // Never save over a list that didn't load: that would wipe it.
+  const dirty =
+    !!guestList &&
+    listState !== 'loading' &&
+    listState !== 'load-error' &&
+    names.join('\n') !== guests.map((g) => g.name).join('\n')
+
+  useEffect(() => {
+    if (!guestList) return
+    let active = true
+    guestList.load().then(
+      (list) => {
+        if (!active) return
+        setGuests(list)
+        setNamesText(list.map((g) => g.name).join('\n'))
+        setListState('ready')
+      },
+      () => active && setListState('load-error'),
+    )
+    return () => {
+      active = false
+    }
+  }, [guestList])
+
+  const saveNow = useCallback(async (): Promise<Guest[]> => {
+    if (!guestList) return []
+    const seq = ++saveSeq.current
+    setListState('saving')
+    try {
+      const list = await guestList.save(names)
+      // An older save finishing late must not undo a newer one.
+      if (seq === saveSeq.current) {
+        setGuests(list)
+        setListState('ready')
+      }
+      return list
+    } catch (err) {
+      if (seq === saveSeq.current) setListState('error')
+      throw err
+    }
+  }, [guestList, names])
+
+  // Save a moment after typing stops.
+  useEffect(() => {
+    if (!dirty) return
+    const id = window.setTimeout(() => void saveNow().catch(() => {}), 700)
+    return () => window.clearTimeout(id)
+  }, [dirty, saveNow])
+
+  /** Marks row `i` as sent (or not); saves pending edits first so the guest exists. */
+  async function markSent(i: number, sent = true) {
+    if (!guestList || !names[i]) return
+    try {
+      const guest = dirty || !matched[i] ? matchGuests(names, await saveNow())[i] : matched[i]
+      if (!guest || !!guest.sentAt === sent) return
+      const updated = await guestList.setSent(guest.id, sent)
+      setGuests((list) => list.map((g) => (g.id === updated.id ? updated : g)))
+    } catch {
+      toast('Gagal menyimpan status kirim')
+    }
+  }
 
   useEffect(() => {
     document.title = `Buat Link Undangan · ${COUPLE}`
@@ -176,6 +249,7 @@ function SendInvitation({
                 id="guest-names"
                 className="field min-h-36 resize-y"
                 value={namesText}
+                disabled={listState === 'loading'}
                 onChange={(e) => {
                   setNamesText(e.target.value)
                   setPreviewIndex(0)
@@ -187,9 +261,48 @@ function SendInvitation({
                 {content.cover.defaultGuestLabel}&rdquo;. Maksimal {GUEST_NAME_MAX} karakter per
                 nama.
               </p>
+              {guestList && (
+                <p className="mt-1 text-sm font-bold text-muted" role="status" data-testid="guest-list-status">
+                  {listState === 'loading' && 'Memuat daftar tamu…'}
+                  {listState === 'saving' && 'Menyimpan…'}
+                  {listState === 'ready' && (dirty ? 'Belum tersimpan…' : 'Daftar tamu tersimpan otomatis.')}
+                  {listState === 'error' && (
+                    <>
+                      Gagal menyimpan daftar tamu.{' '}
+                      <button type="button" className="underline" onClick={() => void saveNow().catch(() => {})}>
+                        Coba lagi
+                      </button>
+                    </>
+                  )}
+                  {listState === 'load-error' && (
+                    <>
+                      Gagal memuat daftar tamu; perubahan tidak disimpan.{' '}
+                      <button type="button" className="underline" onClick={() => window.location.reload()}>
+                        Muat ulang
+                      </button>
+                    </>
+                  )}
+                </p>
+              )}
             </Step>
 
             <Step n={3} title="Salin & Kirim">
+              {guestList && names.length > 0 && (
+                <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                  <p className="font-bold text-text" data-testid="sent-count">
+                    {sentCount} dari {names.length} tamu sudah dikirim
+                  </p>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-2 text-muted">
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 accent-[var(--theme-primary)]"
+                      checked={hideSent}
+                      onChange={(e) => setHideSent(e.target.checked)}
+                    />
+                    Sembunyikan yang sudah dikirim
+                  </label>
+                </div>
+              )}
               {names.length > 1 && (
                 <div className="mb-4 flex flex-wrap gap-2">
                   <button
@@ -208,6 +321,8 @@ function SendInvitation({
               )}
               <ul className="space-y-3" data-testid="invite-rows">
                 {rows.map((name, i) => {
+                  const sentAt = guestList ? matched[i]?.sentAt : null
+                  if (hideSent && sentAt) return null
                   const link = linkFor(name)
                   const previewing = i === Math.min(previewIndex, rows.length - 1)
                   return (
@@ -222,6 +337,24 @@ function SendInvitation({
                           {name || content.cover.defaultGuestLabel}
                           {!name && <span className="font-normal text-muted"> (link umum)</span>}
                         </p>
+                        {sentAt && (
+                          <span className="flex items-center gap-1 text-xs font-bold text-muted">
+                            <span
+                              className="rounded-full bg-highlight px-2 py-0.5 text-highlight-text"
+                              data-testid="sent-badge"
+                            >
+                              ✓ Terkirim
+                            </span>
+                            <button
+                              type="button"
+                              className="underline-offset-2 hover:underline"
+                              aria-label={`Tandai belum dikirim: ${name}`}
+                              onClick={() => void markSent(i, false)}
+                            >
+                              Batalkan
+                            </button>
+                          </span>
+                        )}
                         {isTooLong(name) && (
                           <span className="text-xs font-bold text-[#a33a50]">
                             Lebih dari {GUEST_NAME_MAX} karakter, akan dipotong
@@ -246,14 +379,20 @@ function SendInvitation({
                         <button
                           type="button"
                           className="btn-primary px-4 py-2 text-sm"
-                          onClick={() => copy(link, 'Link tersalin!')}
+                          onClick={() => {
+                            void copy(link, 'Link tersalin!')
+                            void markSent(i)
+                          }}
                         >
                           Salin Link
                         </button>
                         <button
                           type="button"
                           className="btn-outline text-sm"
-                          onClick={() => copy(messageFor(name), 'Pesan tersalin!')}
+                          onClick={() => {
+                            void copy(messageFor(name), 'Pesan tersalin!')
+                            void markSent(i)
+                          }}
                         >
                           Salin Pesan
                         </button>
@@ -262,6 +401,7 @@ function SendInvitation({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn-outline text-sm"
+                          onClick={() => void markSent(i)}
                         >
                           <svg
                             viewBox="0 0 24 24"

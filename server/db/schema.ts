@@ -110,6 +110,22 @@ export const wishes = pgTable(
   (t) => [index('wishes_couple_created_idx').on(t.coupleId, t.createdAt.desc(), t.id.desc())],
 )
 
+/** The couple's guest list on the send-invitation page, in their order. */
+export const guests = pgTable(
+  'guests',
+  {
+    id: uuid('id').primaryKey(),
+    coupleId: uuid('couple_id')
+      .notNull()
+      .references(() => couples.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    position: integer('position').notNull(),
+    /** When a link or message for this guest was copied or sent; null = not yet. */
+    sentAt: ts('sent_at'),
+  },
+  (t) => [index('guests_couple_position_idx').on(t.coupleId, t.position)],
+)
+
 export const adminSessions = pgTable('admin_sessions', {
   tokenHash: text('token_hash').primaryKey(),
   createdAt: ts('created_at').notNull().defaultNow(),
@@ -155,3 +171,4 @@ export type CoupleRow = typeof couples.$inferSelect
 export type MediaRow = typeof media.$inferSelect
 export type RsvpRow = typeof rsvps.$inferSelect
 export type WishRow = typeof wishes.$inferSelect
+export type GuestRow = typeof guests.$inferSelect

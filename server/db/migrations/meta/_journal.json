@@ -15,6 +15,13 @@
       "when": 1791185354233,
       "tag": "0001_views",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791203341949,
+      "tag": "0002_guests",
+      "breakpoints": true
     }
   ]
 }

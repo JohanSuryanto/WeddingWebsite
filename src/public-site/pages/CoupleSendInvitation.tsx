@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { QrCode } from '../../components/QrCode'
 import { coupleUrl } from '../../config/site'
@@ -12,6 +12,7 @@ import {
 import { buildInviteUrl } from '../../lib/inviteLink'
 import { coupleAccess } from '../../services/coupleAccess'
 import { GuestResponses } from '../../send-invitation/GuestResponses'
+import { coupleGuestList } from '../../send-invitation/guestList'
 import { PasscodeScreen } from '../../send-invitation/PasscodeScreen'
 import { SendInvitationPage } from '../../send-invitation/SendInvitationPage'
 import { LoadError, LoadingPage } from './LoadState'
@@ -31,6 +32,7 @@ type State =
 export function CoupleSendInvitation() {
   const { slug = '' } = useParams()
   const [state, setState] = useState<State>({ status: 'loading' })
+  const guestList = useMemo(() => coupleGuestList(slug), [slug])
 
   const refresh = useCallback(async () => {
     // Two rounds: if the passcode changed since this browser unlocked, the
@@ -80,6 +82,7 @@ export function CoupleSendInvitation() {
       coupleUrl={coupleUrl(couple.slug)}
       defaultThemeId={couple.defaultTheme}
       previewUrl={(name, code) => buildInviteUrl(localCoupleUrl, name, code)}
+      guestList={guestList}
       notice={
         coupleStatus === 'draft' && (
           <p className="rounded-lg bg-highlight px-4 py-3 text-sm font-bold text-highlight-text" role="note">
