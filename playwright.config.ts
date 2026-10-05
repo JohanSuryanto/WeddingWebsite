@@ -30,6 +30,7 @@ export const E2E_ENV = {
 }
 
 const LOCKOUT_SPECS = /lockout\.spec\.ts$/
+const BACKUP_SPECS = /backup-roundtrip\.spec\.ts$/
 const PUBLIC_PROJECTS = ['mobile-320', 'mobile-375', 'tablet-768', 'desktop-1366', 'desktop-1920', 'iphone-webkit']
 
 export default defineConfig({
@@ -79,7 +80,7 @@ export default defineConfig({
     {
       name: 'admin-375',
       testDir: './tests/e2e-admin',
-      testIgnore: LOCKOUT_SPECS,
+      testIgnore: [LOCKOUT_SPECS, BACKUP_SPECS],
       use: {
         ...desktop,
         viewport: { width: 375, height: 812 },
@@ -91,16 +92,25 @@ export default defineConfig({
     {
       name: 'admin-1366',
       testDir: './tests/e2e-admin',
-      testIgnore: LOCKOUT_SPECS,
+      testIgnore: [LOCKOUT_SPECS, BACKUP_SPECS],
+      use: { ...desktop, viewport: { width: 1366, height: 900 }, baseURL: `http://admin.localhost:${PORT}` },
+    },
+    // A full backup holds every couple in the shared database; tests running alongside
+    // would delete files mid-export. So it runs alone, after the projects above.
+    {
+      name: 'admin-backup',
+      testDir: './tests/e2e-admin',
+      testMatch: BACKUP_SPECS,
+      dependencies: [...PUBLIC_PROJECTS, 'admin-375', 'admin-1366'],
       use: { ...desktop, viewport: { width: 1366, height: 900 }, baseURL: `http://admin.localhost:${PORT}` },
     },
     // Login lockout is server-wide (FR-009): it would lock every other test out for a
-    // minute, so these run alone, after all other projects.
+    // minute, so these run alone, last.
     {
       name: 'admin-lockout',
       testDir: './tests/e2e-admin',
       testMatch: LOCKOUT_SPECS,
-      dependencies: [...PUBLIC_PROJECTS, 'admin-375', 'admin-1366'],
+      dependencies: ['admin-backup'],
       use: { ...desktop, viewport: { width: 1366, height: 900 }, baseURL: `http://admin.localhost:${PORT}` },
     },
   ],
