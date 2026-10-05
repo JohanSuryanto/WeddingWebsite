@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { themes } from '../../themes'
 
@@ -7,6 +7,8 @@ export default function FullPreviewPage() {
   const { id = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const t = params.get('t')
+  // Bumped by "Sampul": reloads the frame, back to the cover.
+  const [reloads, setReloads] = useState(0)
 
   useEffect(() => {
     document.title = 'Pratinjau · Admin Undangan'
@@ -22,6 +24,13 @@ export default function FullPreviewPage() {
           ← Kembali
         </Link>
         <span className="text-sm font-bold text-muted">Pratinjau</span>
+        <button
+          type="button"
+          className="btn-outline px-3 py-1 text-sm"
+          onClick={() => setReloads((n) => n + 1)}
+        >
+          Sampul
+        </button>
         <div role="group" aria-label="Tema pratinjau" className="ml-auto flex gap-1">
           <button
             type="button"
@@ -54,7 +63,7 @@ export default function FullPreviewPage() {
         </div>
       </div>
       <iframe
-        key={frameParams.toString()}
+        key={`${frameParams}#${reloads}`}
         title="Pratinjau undangan"
         data-testid="full-preview"
         src={`/preview-frame?${frameParams}`}

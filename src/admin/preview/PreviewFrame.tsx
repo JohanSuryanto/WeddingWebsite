@@ -16,6 +16,7 @@ interface Shown {
   themeId: ThemeId
   guestName: string | null | undefined
   skipCover: boolean
+  view?: number
 }
 
 /** Saved-couple mode: /preview-frame?couple=<id>[&inv=…][&t=…] */
@@ -68,6 +69,7 @@ function LiveDraft() {
         themeId: msg.themeId,
         guestName: msg.guestName,
         skipCover: !!msg.openInvitation,
+        view: msg.view,
       })
     }
     window.addEventListener('message', onMessage)
@@ -88,6 +90,8 @@ function Render({ shown }: { shown: Shown }) {
       }
     >
       <CoupleInvitation
+        // A new view restarts the invitation, even after "Buka Undangan" inside the frame.
+        key={shown.view}
         content={shown.content}
         themeId={shown.themeId}
         guestName={shown.guestName}
