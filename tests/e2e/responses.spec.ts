@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { adminApi, duplicateSample, openInvitation } from './helpers'
 
 async function rsvp(page: Page, name: string, count: number) {
@@ -17,12 +17,6 @@ async function wish(page: Page, name: string, message: string) {
   await section.getByRole('button', { name: 'Kirim Ucapan' }).click()
 }
 
-// Two guests' pages are open at once. With smooth scrolling, WebKit keeps the
-// page that isn't in front "moving" after Playwright scrolls to a button, so
-// clicks wait forever or land mid-scroll. Reduced motion turns that off.
-const guestPage = async (browser: Browser) =>
-  (await browser.newContext({ reducedMotion: 'reduce' })).newPage()
-
 test('RSVPs and wishes are saved and shared between guests (US5)', async ({ browser, playwright }) => {
   test.setTimeout(150_000) // ~20 steps across three browsers; WebKit is slow under load
   const api = await adminApi(playwright)
@@ -31,8 +25,8 @@ test('RSVPs and wishes are saved and shared between guests (US5)', async ({ brow
   await api.dispose()
   const tag = Math.random().toString(36).slice(2, 7)
 
-  const a = await guestPage(browser)
-  const b = await guestPage(browser)
+  const a = await (await browser.newContext()).newPage()
+  const b = await (await browser.newContext()).newPage()
   await openInvitation(a, `/${couple.slug}`)
   await openInvitation(b, `/${couple.slug}`)
 
@@ -56,7 +50,7 @@ test('RSVPs and wishes are saved and shared between guests (US5)', async ({ brow
   await expect(a.locator('#rsvp')).toContainText('Respons Anda sudah kami terima')
 
   // The couple sees the totals on their unlocked page.
-  const c = await guestPage(browser)
+  const c = await (await browser.newContext()).newPage()
   await c.goto(`/${couple.slug}/send-invitation`)
   await c.getByLabel('Digit 1').pressSequentially(couple.passcode)
   const panel = c.getByTestId('guest-responses')
