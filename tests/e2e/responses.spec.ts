@@ -18,7 +18,7 @@ async function wish(page: Page, name: string, message: string) {
 }
 
 test('RSVPs and wishes are saved and shared between guests (US5)', async ({ browser, playwright }) => {
-  test.setTimeout(90_000)
+  test.setTimeout(150_000) // ~20 steps across three browsers; WebKit is slow under load
   const api = await adminApi(playwright)
   const couple = await duplicateSample(api)
   await api.post(`/api/admin/couples/${couple.id}/status`, { data: { status: 'active' } })

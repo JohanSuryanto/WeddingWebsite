@@ -34,7 +34,8 @@ const PUBLIC_PROJECTS = ['mobile-320', 'mobile-375', 'tablet-768', 'desktop-1366
 
 export default defineConfig({
   fullyParallel: true,
-  reporter: 'list',
+  // CI: failures also become GitHub annotations, readable without the job log.
+  reporter: process.env.CI ? [['list'], ['github']] : 'list',
   webServer: {
     // Fresh database and media each run: wipe .data/e2e-*, migrate, seed Anisa & Raka
     // (passcode saved to .data/e2e-passcode.txt), then serve the builds plus the API.
