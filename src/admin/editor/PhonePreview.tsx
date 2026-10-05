@@ -6,7 +6,7 @@ import { collectMediaRefs, isMediaRef, mapSources, mediaId } from '../../data/re
 import { themes } from '../../themes'
 import type { ThemeId } from '../../themes/types'
 import { useMediaSession } from '../media/MediaSession'
-import { isPreviewReady, type PreviewUpdate } from '../preview/messages'
+import { isPreviewOpened, isPreviewReady, type PreviewUpdate } from '../preview/messages'
 import type { CoupleFormValues } from './formModel'
 
 const DEBOUNCE_MS = 250
@@ -29,10 +29,14 @@ export function PhonePreview({ initialTheme }: { initialTheme: ThemeId }) {
     return () => cache.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u))
   }, [])
 
-  // Re-send the latest draft whenever the frame (re)loads.
+  // From the frame: re-send the latest draft when it (re)loads; follow "Buka Undangan".
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin || !isPreviewReady(e.data)) return
+      if (e.origin !== window.location.origin || e.source !== frameRef.current?.contentWindow)
+        return
+      // Opened inside the frame: show "Isi" as selected, without restarting the frame.
+      if (isPreviewOpened(e.data)) return setOpenInvitation(true)
+      if (!isPreviewReady(e.data)) return
       if (latest.current)
         frameRef.current?.contentWindow?.postMessage(latest.current, window.location.origin)
     }

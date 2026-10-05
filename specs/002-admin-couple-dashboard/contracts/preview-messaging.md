@@ -20,6 +20,7 @@ type PreviewUpdate = {
   themeId: ThemeId             // preview theme (does not change the saved defaultTheme)
   guestName: string | null     // shown on the cover
   openInvitation?: boolean     // true: skip the cover and show the sections
+  view?: number                // bumped on every Sampul/Isi press: the frame restarts in that view
 }
 ```
 
@@ -27,6 +28,7 @@ Frame → parent:
 
 ```ts
 type PreviewReady = { type: 'preview:ready' }   // sent once on load; the parent then posts the latest draft
+type PreviewOpened = { type: 'preview:opened' } // \"Buka Undangan\" pressed in the frame; the parent selects Isi
 ```
 
 ## Rules
