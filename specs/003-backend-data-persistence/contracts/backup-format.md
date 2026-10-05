@@ -17,7 +17,8 @@ This extends 002 `contracts/backup-format.md` (v1). The restore code reads **bot
       "data": "<base64>" }
   ],
   "rsvps":  [ { "id": "…", "coupleId": "…", "name": "…", "attendance": "hadir", "guestCount": 2, "submittedAt": "…", "updatedAt": "…" } ],
-  "wishes": [ { "id": "…", "coupleId": "…", "name": "…", "message": "…", "attendance": null, "hidden": false, "createdAt": "…" } ]
+  "wishes": [ { "id": "…", "coupleId": "…", "name": "…", "message": "…", "attendance": null, "hidden": false, "createdAt": "…" } ],
+  "guests": [ { "id": "…", "coupleId": "…", "name": "…", "position": 0, "sentAt": null } ]
 }
 ```
 
@@ -38,7 +39,7 @@ This extends 002 `contracts/backup-format.md` (v1). The restore code reads **bot
    2. v1 couple (no passcode): set `randomPasscode()`.
    3. `PUT /api/admin/import/couples/:id` `{ couple, media: meta[], mode }` returns `pendingMediaIds`.
    4. Upload each pending media file with the normal 3-step flow, using `id` = the original (or rewritten) media id.
-   5. `POST …/responses` with that couple's RSVPs and wishes (v2 only; ids are kept, existing ids skipped).
+   5. `POST …/responses` with that couple's RSVPs, wishes and guest list (v2 only; ids are kept, existing ids skipped; files from before the guest list have no `guests`).
    6. `POST …/finish`. The couple keeps its backed-up status (Draf/Aktif).
 4. **Report**: "Dipulihkan", "Dilewati" or "Gagal" for each couple. A failed couple stays `restorePending`. It shows "Pemulihan belum selesai" in the list and can't be published until the restore is run again.
 

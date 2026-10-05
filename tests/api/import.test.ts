@@ -121,10 +121,12 @@ describe('export (US7, SC-005)', () => {
     const guest = new Client(t.app, PUBLIC_ORIGIN)
     await guest.post('/api/public/couples/ekspor/rsvp', { name: 'Pak Andi', attendance: 'hadir', guestCount: 2 })
     await guest.post('/api/public/couples/ekspor/wishes', { name: 'Bu Rina', message: 'Bahagia selalu' })
+    const list = await admin.put(`/api/admin/couples/${id}/guests`, { names: ['Pak Andi', 'Bu Rina'] })
+    await admin.patch(`/api/admin/couples/${id}/guests/${list.json.guests[0].id}`, { sent: true })
     return admin
   }
 
-  it('exports v2 with passcodes, media URLs, RSVPs and wishes, and restores into an empty database unchanged', async () => {
+  it('exports v2 with passcodes, media URLs, RSVPs, wishes and guests, and restores into an empty database unchanged', async () => {
     const source = await makeTestApp()
     const admin = await seeded(source)
     const doc = (await admin.get('/api/admin/export')).json
@@ -133,6 +135,7 @@ describe('export (US7, SC-005)', () => {
     expect(doc.media[0]).toHaveProperty('url')
     expect(doc.media[0]).not.toHaveProperty('data')
     expect(doc.rsvps).toHaveLength(1)
+    expect(doc.guests).toHaveLength(2)
     expect(JSON.stringify(doc)).not.toContain('visitor')
 
     // The browser part: fetch each file's bytes from its URL.
@@ -155,6 +158,7 @@ describe('export (US7, SC-005)', () => {
       await fresh.post(`/api/admin/import/couples/${couple.id}/responses`, {
         rsvps: doc.rsvps.filter((r: { coupleId: string }) => r.coupleId === couple.id),
         wishes: doc.wishes.filter((w: { coupleId: string }) => w.coupleId === couple.id),
+        guests: doc.guests.filter((g: { coupleId: string }) => g.coupleId === couple.id),
       })
       await fresh.post(`/api/admin/import/couples/${couple.id}/finish`, { status: couple.status })
     }
@@ -164,6 +168,7 @@ describe('export (US7, SC-005)', () => {
     expect(back.couples.map(strip)).toEqual(doc.couples.map(strip))
     expect(back.rsvps).toEqual(doc.rsvps)
     expect(back.wishes).toEqual(doc.wishes)
+    expect(back.guests).toEqual(doc.guests) // names, order and sent marks
     for (const m of back.media) {
       const res = await target.app.request(`http://admin.localhost:4817${m.url}`)
       expect(sha(new Uint8Array(await res.arrayBuffer()))).toBe(sha(bytes.get(m.id)!))

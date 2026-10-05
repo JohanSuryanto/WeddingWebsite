@@ -6,6 +6,7 @@ import { listRsvps, responsesFor } from '../db/repos/responses'
 import { csvFileName, rsvpCsv } from '../lib/csv'
 import { toPublicCouple } from '../lib/publicContent'
 import type { AppEnv } from '../types'
+import { guestRoutes } from './guests'
 
 type Body = (data: string, status: 200, headers: Record<string, string>) => Response
 
@@ -45,6 +46,9 @@ export function coupleRoutes() {
         const couple = c.var.couple!
         return csvResponse(c.body.bind(c), couple.slug, await listRsvps(c.var.db, couple.id))
       })
+
+      // The guest list, shared with the admin.
+      .route('/:slug/guests', guestRoutes(async (c) => c.var.couple!.id))
 
       .post('/:slug/lock', (c) => {
         lockCouple(c, c.var.couple!)
