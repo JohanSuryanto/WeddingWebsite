@@ -18,6 +18,7 @@ export function PhonePreview({ initialTheme }: { initialTheme: ThemeId }) {
   const [themeId, setThemeId] = useState<ThemeId>(initialTheme)
   const [guestName, setGuestName] = useState('')
   const [openInvitation, setOpenInvitation] = useState(false)
+  const [view, setView] = useState(0)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const savedUrls = useRef(new Map<string, string>())
   const latest = useRef<PreviewUpdate | null>(null)
@@ -64,6 +65,7 @@ export function PhonePreview({ initialTheme }: { initialTheme: ThemeId }) {
         themeId,
         guestName: guestName.trim() || null,
         openInvitation,
+        view,
       }
       latest.current = msg
       frameRef.current?.contentWindow?.postMessage(msg, window.location.origin)
@@ -72,7 +74,7 @@ export function PhonePreview({ initialTheme }: { initialTheme: ThemeId }) {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [content, urls, themeId, guestName, openInvitation])
+  }, [content, urls, themeId, guestName, openInvitation, view])
 
   return (
     <div className="space-y-3">
@@ -127,7 +129,10 @@ export function PhonePreview({ initialTheme }: { initialTheme: ThemeId }) {
                   ? 'bg-highlight text-highlight-text'
                   : 'text-muted hover:bg-surface-alt'
               }`}
-              onClick={() => setOpenInvitation(o.open)}
+              onClick={() => {
+                setOpenInvitation(o.open)
+                setView((n) => n + 1)
+              }}
             >
               {o.label}
             </button>

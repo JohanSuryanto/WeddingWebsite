@@ -3,13 +3,18 @@ import { FormField } from '../../components/FormField'
 import { SectionShell } from '../../components/SectionShell'
 import type { Attendance } from '../../content/types'
 import { useGuestName } from '../../hooks/useGuestName'
+import { tryFormatDateId } from '../../lib/dateFormat'
+import { rsvpClosed } from '../../lib/rsvpDeadline'
 import { GUESTS_MAX, GUESTS_MIN, NAME_MAX } from '../../lib/validation'
 import { useServices, ValidationError, type FieldErrors, type RsvpResponse } from '../../services'
+import { useWedding } from '../WeddingProvider'
 
 type Status = 'idle' | 'submitting' | 'success'
 
 export function Rsvp() {
   const { rsvpService } = useServices()
+  const { rsvpDeadline } = useWedding()
+  const closed = rsvpClosed(rsvpDeadline)
   const guest = useGuestName()
   const [name, setName] = useState(guest ?? '')
   const [attendance, setAttendance] = useState<Attendance | ''>('')
@@ -63,7 +68,11 @@ export function Rsvp() {
       id="rsvp"
       title="Konfirmasi Kehadiran"
       variant="alt"
-      subtitle="Mohon konfirmasi kehadiran Anda untuk membantu kami mempersiapkan acara."
+      subtitle={
+        rsvpDeadline && !closed
+          ? `Mohon konfirmasi kehadiran Anda sebelum ${tryFormatDateId(`${rsvpDeadline}T12:00:00+07:00`)}.`
+          : 'Mohon konfirmasi kehadiran Anda untuk membantu kami mempersiapkan acara.'
+      }
     >
       <div className="card mx-auto max-w-lg px-5 py-8 sm:px-8">
         {status === 'success' && result ? (
@@ -83,10 +92,16 @@ export function Rsvp() {
                 Respons Anda sudah kami terima. Kirim lagi untuk mengubahnya.
               </p>
             )}
-            <button type="button" className="btn-outline mt-6" onClick={() => setStatus('idle')}>
-              Ubah jawaban
-            </button>
+            {!closed && (
+              <button type="button" className="btn-outline mt-6" onClick={() => setStatus('idle')}>
+                Ubah jawaban
+              </button>
+            )}
           </div>
+        ) : closed ? (
+          <p className="text-center text-text" role="status">
+            Konfirmasi kehadiran sudah ditutup. Terima kasih.
+          </p>
         ) : (
           <form noValidate onSubmit={onSubmit} className="space-y-5">
             <FormField id="rsvp-name" label="Nama" error={errors.name}>

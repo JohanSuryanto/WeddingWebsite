@@ -102,7 +102,8 @@ function CoupleCard({
           </div>
           <p className="text-sm text-muted">
             {tryFormatDateId(couple.mainDate) || 'Tanggal belum diisi'} · Tema{' '}
-            {themes[couple.defaultTheme].code}. {themes[couple.defaultTheme].name}
+            {themes[couple.defaultTheme].code}. {themes[couple.defaultTheme].name} · Dibuka{' '}
+            <span data-testid="views">{couple.views}</span> kali
           </p>
         </div>
       </div>

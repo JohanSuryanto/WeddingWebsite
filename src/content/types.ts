@@ -101,4 +101,6 @@ export interface WeddingContent {
    * {mempelai}, {tanggal}.
    */
   shareMessage?: string
+  /** Last day guests can RSVP ("YYYY-MM-DD", WIB); empty = no deadline. */
+  rsvpDeadline?: string
 }

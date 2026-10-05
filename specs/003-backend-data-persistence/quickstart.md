@@ -23,16 +23,16 @@ ADMIN_EMAIL=admin@test.local
 ADMIN_PASSWORD_HASH=scrypt$32768$8$1$...
 SESSION_SECRET=<openssl rand -base64 32 or any 32+ random chars>
 CRON_SECRET=dev-cron
-PUBLIC_ORIGIN=http://localhost:5173
-ADMIN_ORIGIN=http://admin.localhost:5173
-VITE_PUBLIC_SITE_URL=http://localhost:5173
+PUBLIC_ORIGIN=http://localhost:5177
+ADMIN_ORIGIN=http://admin.localhost:5177
+VITE_PUBLIC_SITE_URL=http://localhost:5177
 ```
 
 | Address | What |
 |---|---|
-| http://localhost:5173/anisa-raka | Public invitation (from the database) |
-| http://localhost:5173/anisa-raka/send-invitation | Passcode screen |
-| http://admin.localhost:5173 | Admin login |
+| http://localhost:5177/anisa-raka | Public invitation (from the database) |
+| http://localhost:5177/anisa-raka/send-invitation | Passcode screen |
+| http://admin.localhost:5177 | Admin login |
 
 `npm run dev` mounts the API inside Vite (`vite/apiDevServer.ts`), and the host decides public or admin (research R10). To reset local data, delete `.data/`.
 
@@ -101,8 +101,8 @@ Run these on local development first, then on production. Each one maps to a spe
 | V1 | In the admin, create "Budi & Sari" with one event and publish. On another browser profile (never logged in), open `/budi-sari` | The invitation shows within 10 s of publishing | US1-1, SC-001 |
 | V2 | Edit the bride's nickname and save. Refresh `/budi-sari` | New nickname shown | US1-2 |
 | V3 | Set Budi & Sari to Draf. Open `/budi-sari`; in dev tools, check the response of `GET /api/public/couples/budi-sari` | "Undangan belum tersedia"; the response body has no `content` | US1-3, FR-003 |
-| V4 | Logged out: `curl -X PATCH http://admin.localhost:5173/api/admin/couples/<id> -H "Origin: http://admin.localhost:5173" -d '{}'` | 401, nothing changed | US2-2, SC-002 |
-| V5 | `curl` the same on `http://localhost:5173/api/admin/couples` (public host) | 404 (admin API not mounted) | FR-001/R4 |
+| V4 | Logged out: `curl -X PATCH http://admin.localhost:5177/api/admin/couples/<id> -H "Origin: http://admin.localhost:5177" -d '{}'` | 401, nothing changed | US2-2, SC-002 |
+| V5 | `curl` the same on `http://localhost:5177/api/admin/couples` (public host) | 404 (admin API not mounted) | FR-001/R4 |
 | V6 | Enter the wrong admin password 5×, then try from a second browser | Locked for 60 s on both | US2-3, FR-009 |
 | V7 | Log in on two browsers. Edit the same couple, save in A, then save in B | B shows the "sudah diubah" conflict warning | FR-005 |
 | V8 | Delete the `ws_admin` session row (or wait for expiry), change a field, press Simpan | Re-login dialog appears; after login the change is saved | US2-4 |

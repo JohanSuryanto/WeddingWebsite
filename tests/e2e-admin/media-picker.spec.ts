@@ -26,9 +26,19 @@ test('every upload opens a picker: sample photos or music, or a file from this d
   await chooser.setFiles(`${FIXTURES}/photo-2.jpg`)
   await expect(bride.getByTestId('stored-size')).toBeVisible()
 
+  // Groom photo: its own samples, men's silhouettes.
+  const groom = page.getByTestId('groom-photo-field')
+  await groom.getByRole('button', { name: 'Pilih Foto', exact: true }).click()
+  const groomDialog = page.getByRole('dialog', { name: 'Pilih foto: Foto mempelai pria' })
+  await expect(groomDialog.getByTestId('sample-photos').getByRole('button')).toHaveCount(6)
+  await groomDialog.getByRole('button', { name: /Peci & beskap/ }).click()
+  await expect(groom.getByTestId('stored-size')).toBeVisible()
+
   // Gallery: several samples at once, each starting with its label as the description.
   await page.getByRole('button', { name: '+ Tambah Foto' }).click()
   const gallery = page.getByRole('dialog', { name: 'Tambah foto galeri' })
+  // 6 photos of the couple together, then the 6 general photos.
+  await expect(gallery.getByTestId('sample-photos').getByRole('button')).toHaveCount(12)
   await gallery.getByRole('button', { name: /Mawar merah muda/ }).click()
   await gallery.getByRole('button', { name: /Cahaya lilin/ }).click()
   await expect(gallery.getByRole('button', { name: /Cahaya lilin/ })).toHaveAttribute('aria-pressed', 'true')

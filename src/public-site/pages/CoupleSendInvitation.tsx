@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router'
+import { QrCode } from '../../components/QrCode'
 import { coupleUrl } from '../../config/site'
 import {
   NotFoundError,
@@ -86,7 +87,17 @@ export function CoupleSendInvitation() {
           </p>
         )
       }
-      extra={<GuestResponses slug={couple.slug} />}
+      extra={
+        <div className="space-y-6">
+          <section aria-labelledby="qr-heading" className="card space-y-3 p-5 sm:p-6">
+            <h2 id="qr-heading" className="text-2xl text-text">
+              Kode QR Undangan
+            </h2>
+            <QrCode url={coupleUrl(couple.slug)} fileName={`qr-${couple.slug}`} />
+          </section>
+          <GuestResponses slug={couple.slug} />
+        </div>
+      }
       actions={
         <button
           type="button"

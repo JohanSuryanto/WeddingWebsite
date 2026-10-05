@@ -10,7 +10,10 @@ export const PER_IP = 30
 
 /** Counts one hit; throws 429 once `limit` is passed within the window. */
 export async function hit(db: Db, bucket: string, limit: number, windowMs = RESPONSE_WINDOW_MS, now = new Date()) {
-  const cutoff = new Date(now.getTime() - windowMs)
+  // Raw sql`` params aren't mapped by column type: pass ISO text and cast, or
+  // postgres.js (Neon) rejects Date objects (PGlite happens to accept them).
+  const cutoff = sql`${new Date(now.getTime() - windowMs).toISOString()}::timestamptz`
+  const nowTs = sql`${now.toISOString()}::timestamptz`
   const [row] = await db
     .insert(rateLimits)
     .values({ bucket, windowStart: now, count: 1 })
@@ -18,7 +21,7 @@ export async function hit(db: Db, bucket: string, limit: number, windowMs = RESP
       target: rateLimits.bucket,
       set: {
         count: sql`case when ${rateLimits.windowStart} < ${cutoff} then 1 else ${rateLimits.count} + 1 end`,
-        windowStart: sql`case when ${rateLimits.windowStart} < ${cutoff} then ${now} else ${rateLimits.windowStart} end`,
+        windowStart: sql`case when ${rateLimits.windowStart} < ${cutoff} then ${nowTs} else ${rateLimits.windowStart} end`,
       },
     })
     .returning()

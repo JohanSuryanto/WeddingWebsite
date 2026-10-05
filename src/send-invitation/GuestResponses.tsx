@@ -57,7 +57,7 @@ export function GuestResponses({ slug }: { slug: string }) {
       )}
       {data && (
         <>
-          <ResponseTotals totals={data.totals} />
+          <ResponseTotals totals={data.totals} views={data.views} />
           <div className="grid gap-6 lg:grid-cols-2">
             <div>
               <h3 className="mb-2 text-lg text-text">Konfirmasi kehadiran</h3>

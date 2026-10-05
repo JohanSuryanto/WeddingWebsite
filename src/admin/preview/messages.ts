@@ -8,6 +8,8 @@ export interface PreviewUpdate {
   themeId: ThemeId
   guestName: string | null
   openInvitation?: boolean
+  /** Bumped on every Sampul/Isi press: the frame restarts the invitation in that view. */
+  view?: number
 }
 
 /** Frame → editor, once on load. */

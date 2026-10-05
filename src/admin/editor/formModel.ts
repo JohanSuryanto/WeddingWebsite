@@ -49,7 +49,7 @@ export function tabOfPath(path: string): TabId {
   )
     return 'foto'
   if (p.startsWith('couple') || p.startsWith('cover')) return 'mempelai'
-  if (p.startsWith('events')) return 'acara'
+  if (p.startsWith('events') || p === 'rsvpDeadline') return 'acara'
   if (p.startsWith('story')) return 'cerita'
   if (p.startsWith('gifts')) return 'hadiah'
   if (p.startsWith('music')) return 'musik'
