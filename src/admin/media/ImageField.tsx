@@ -21,6 +21,7 @@ export function ImageField({
   required,
   aspect = 'aspect-[4/3]',
   testId,
+  samples,
 }: {
   label: string
   value: ImageRef | undefined
@@ -30,6 +31,8 @@ export function ImageField({
   required?: boolean
   aspect?: string
   testId?: string
+  /** Picker samples; the general photo samples when omitted. */
+  samples?: readonly MediaSample[]
 }) {
   const id = useId()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -140,6 +143,7 @@ export function ImageField({
           kind="image"
           title={`Pilih foto: ${label}`}
           inputId={id}
+          samples={samples}
           onSamples={pickSample}
           onClose={closePicker}
         />

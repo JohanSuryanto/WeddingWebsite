@@ -1,5 +1,6 @@
 import { Controller, useFieldArray, useFormContext } from 'react-hook-form'
 import { ImageField } from '../../media/ImageField'
+import { SAMPLE_GALLERY } from '../../media/samples'
 import type { CoupleFormValues } from '../formModel'
 import { ItemControls, Section, TextArea, TextField } from '../fields'
 
@@ -56,6 +57,7 @@ export default function CeritaTab() {
                 <ImageField
                   label="Foto (opsional)"
                   preset="story"
+                  samples={SAMPLE_GALLERY}
                   value={photo.value}
                   onChange={(v) => photo.onChange(v)}
                 />

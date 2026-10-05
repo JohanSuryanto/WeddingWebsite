@@ -24,7 +24,7 @@ import { MAX_GALLERY } from '../../data/mediaLimits'
 import { useMediaUrl } from '../hooks/useMediaUrl'
 import { MediaPickerDialog } from './MediaPickerDialog'
 import { useMediaSession } from './MediaSession'
-import { sampleFile, type MediaSample } from './samples'
+import { SAMPLE_GALLERY, sampleFile, type MediaSample } from './samples'
 import { describeUploadError } from './useUploads'
 
 export const GALLERY_MAX = MAX_GALLERY
@@ -288,6 +288,7 @@ export function GalleryField({
           title="Tambah foto galeri"
           inputId={inputId}
           multiple
+          samples={SAMPLE_GALLERY}
           onSamples={(samples) => void addSamples(samples)}
           onClose={closePicker}
         />
