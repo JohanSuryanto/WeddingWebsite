@@ -43,7 +43,7 @@ function prefersReducedMotion() {
   return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 
-function InvitationBody({ skipCover }: { skipCover: boolean }) {
+function InvitationBody({ skipCover, onOpen }: { skipCover: boolean; onOpen?: () => void }) {
   const wedding = useWedding()
   const { play } = useMusic()
   const { AmbientEffect } = useTheme().ornaments
@@ -74,6 +74,7 @@ function InvitationBody({ skipCover }: { skipCover: boolean }) {
   function handleOpen() {
     // Must run synchronously inside the click for autoplay to be allowed.
     play()
+    onOpen?.()
     if (prefersReducedMotion()) {
       setCoverState('gone')
       return
@@ -111,7 +112,15 @@ function InvitationBody({ skipCover }: { skipCover: boolean }) {
  * A couple's full invitation. Expects <ThemeProvider>, <WeddingProvider> and
  * <ServicesProvider> around it.
  */
-export function Invitation({ skipCover = false }: { skipCover?: boolean }) {
+export function Invitation({
+  skipCover = false,
+  onOpen,
+}: {
+  /** Start on the contents. Read once: remount (a new `key`) to switch back to the cover. */
+  skipCover?: boolean
+  /** Called when the guest presses "Buka Undangan". */
+  onOpen?: () => void
+}) {
   const wedding = useWedding()
 
   useEffect(() => {
@@ -122,8 +131,7 @@ export function Invitation({ skipCover = false }: { skipCover?: boolean }) {
   return (
     <MusicProvider track={wedding.music}>
       <ToastProvider>
-        {/* Remount when switching cover/contents so the cover state resets. */}
-        <InvitationBody key={skipCover ? 'contents' : 'cover'} skipCover={skipCover} />
+        <InvitationBody skipCover={skipCover} onOpen={onOpen} />
       </ToastProvider>
     </MusicProvider>
   )

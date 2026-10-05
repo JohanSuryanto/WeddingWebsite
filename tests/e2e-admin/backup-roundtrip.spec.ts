@@ -6,9 +6,6 @@ test('a full backup brings a deleted couple back with photos and responses (US7,
   browser,
 }) => {
   test.setTimeout(150_000)
-  // The backup holds every couple in the shared e2e database; two viewports
-  // deleting and restoring at once would act on each other's couples.
-  test.skip(test.info().project.name !== 'admin-1366', 'one viewport is enough for a round trip')
   await login(page)
   await page.getByLabel('Cari pasangan').fill('anisa-raka')
   const [duplicated] = await Promise.all([

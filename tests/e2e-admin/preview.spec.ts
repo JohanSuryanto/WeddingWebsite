@@ -40,15 +40,16 @@ test('after opening the invitation inside a preview, "Sampul" goes back to the c
   await login(page)
   await createCouple(page)
 
-  // Live preview: open it inside the frame, then press Sampul (already selected).
+  // Live preview: open it inside the frame, then go back with Sampul.
   if (isMobile) await page.getByRole('button', { name: 'Lihat Tampilan' }).click()
   const live = page.frameLocator('[data-testid=live-preview]')
   await live.getByRole('button', { name: 'Buka Undangan' }).click()
   await expect(live.getByRole('button', { name: 'Buka Undangan' })).toHaveCount(0)
-  await page
-    .getByRole('group', { name: 'Bagian pratinjau' })
-    .getByRole('button', { name: 'Sampul' })
-    .click()
+  // The toggle follows: Isi is selected, and the frame stays open (not restarted).
+  const toggle = page.getByRole('group', { name: 'Bagian pratinjau' })
+  await expect(toggle.getByRole('button', { name: 'Isi' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(live.locator('main')).toBeVisible()
+  await toggle.getByRole('button', { name: 'Sampul' }).click()
   await expect(live.getByRole('button', { name: 'Buka Undangan' })).toBeVisible()
 
   // Full preview: same, with its own Sampul button.

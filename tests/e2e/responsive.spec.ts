@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openInvitation, openSendInvitation, scrollThrough } from './helpers'
+import { adminApi, duplicateSample, openInvitation, openSendInvitation, scrollThrough } from './helpers'
 
 async function assertNoHorizontalOverflow(page: import('@playwright/test').Page) {
   const { scrollWidth, innerWidth } = await page.evaluate(() => ({
@@ -45,11 +45,18 @@ test('gift copy, RSVP validation; RSVPs and wishes are saved', async ({
   page,
   context,
   browserName,
+  playwright,
 }) => {
   if (browserName === 'chromium') {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   }
-  await openInvitation(page, '/anisa-raka?inv=Budi+Santoso')
+  // Its own copy of the sample: every viewport (and every retry) answering the shared
+  // couple from one IP would run into the per-IP limit (30 per 10 minutes).
+  const api = await adminApi(playwright)
+  const couple = await duplicateSample(api)
+  await api.post(`/api/admin/couples/${couple.id}/status`, { data: { status: 'active' } })
+  await api.dispose()
+  await openInvitation(page, `/${couple.slug}?inv=Budi+Santoso`)
 
   await page.locator('#hadiah').getByRole('button', { name: 'Salin', exact: true }).first().click()
   await expect(page.getByRole('status').filter({ hasText: 'Tersalin!' })).toBeVisible()
@@ -69,7 +76,6 @@ test('gift copy, RSVP validation; RSVPs and wishes are saved', async ({
 
   const wishes = page.locator('#ucapan')
   await expect(wishes.getByLabel('Nama')).toHaveValue('Budi Santoso')
-  // Unique per run: every viewport writes to the same sample couple.
   const text = `Selamat menempuh hidup baru! ${test.info().project.name} ${Date.now()}`
   await wishes.getByLabel('Ucapan & Doa').fill(text)
   await wishes.getByRole('button', { name: 'Kirim Ucapan' }).click()

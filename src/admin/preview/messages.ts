@@ -12,6 +12,11 @@ export interface PreviewUpdate {
   view?: number
 }
 
+/** Frame → editor, when the guest presses "Buka Undangan" inside the frame. */
+export interface PreviewOpened {
+  type: 'preview:opened'
+}
+
 /** Frame → editor, once on load. */
 export interface PreviewReady {
   type: 'preview:ready'
@@ -25,4 +30,10 @@ export function isPreviewUpdate(data: unknown): data is PreviewUpdate {
 
 export function isPreviewReady(data: unknown): data is PreviewReady {
   return !!data && typeof data === 'object' && (data as { type?: unknown }).type === 'preview:ready'
+}
+
+export function isPreviewOpened(data: unknown): data is PreviewOpened {
+  return (
+    !!data && typeof data === 'object' && (data as { type?: unknown }).type === 'preview:opened'
+  )
 }
