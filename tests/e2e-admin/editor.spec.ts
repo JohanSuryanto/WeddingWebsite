@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { createCouple, fillRequired, login, save } from './helpers'
 
 test('editor validates events, saves, and keeps data after reload', async ({ page }) => {

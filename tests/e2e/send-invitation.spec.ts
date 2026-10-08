@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { adminApi, duplicateSample, openSendInvitation } from './helpers'
 
 test('/<slug>/send-invitation builds per-guest links that open the right invitation', async ({

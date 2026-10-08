@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 
 test.describe('cover', () => {
   test('shows the personalized guest name', async ({ page }) => {

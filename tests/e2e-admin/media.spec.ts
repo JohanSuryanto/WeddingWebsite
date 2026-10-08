@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { createCouple, FIXTURES, fillRequired, login, save } from './helpers'
 
 function kb(text: string | null) {

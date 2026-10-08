@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { createCouple, login } from './helpers'
 
 test('live preview follows unsaved edits and switches themes without saving', async ({

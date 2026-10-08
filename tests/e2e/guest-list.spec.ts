@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { adminApi, duplicateSample, openSendInvitation } from './helpers'
 
 test('the guest list is saved, marks who was sent a link, and is shared with the admin', async ({

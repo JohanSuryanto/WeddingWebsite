@@ -1,4 +1,4 @@
-import { test } from '@playwright/test'
+import { test } from '../fixtures'
 import { createCouple, login, noHorizontalOverflow } from './helpers'
 
 const TABS = [

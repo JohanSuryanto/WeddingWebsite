@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 
 test('landing page presents the service, theme examples and WhatsApp contact', async ({ page }) => {
   await page.goto('/')

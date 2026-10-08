@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { createCouple, FIXTURES, fillRequired, login, PUBLIC_URL, save, uniqueSlug } from './helpers'
 
 test('a failed upload is retried on its own; saving waits for it (US3-3, FR-015)', async ({ page }) => {

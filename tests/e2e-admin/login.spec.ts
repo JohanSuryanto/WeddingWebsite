@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { ADMIN, login } from './helpers'
 
 test('dashboard pages redirect to login and back after logging in', async ({ page }) => {

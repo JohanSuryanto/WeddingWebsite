@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 
 // SC-003: first screen within 3 s on a typical 4G phone connection (warm server).
 // The cold-start part (≤ 10 s after a quiet period) is measured in production.

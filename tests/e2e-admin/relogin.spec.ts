@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { ADMIN, createCouple, fillRequired, login, save } from './helpers'
 
 test('when the session ends mid-edit, logging in again saves the edits (US2-4)', async ({ page, context }) => {

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../fixtures'
 import { adminApi, duplicateSample, openInvitation } from './helpers'
 
 async function rsvp(page: Page, name: string, count: number) {
