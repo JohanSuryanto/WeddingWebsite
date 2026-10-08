@@ -5,6 +5,7 @@ import { mainEvent, orderedCouple } from '../content/selectors'
 import type { WeddingContent } from '../content/types'
 import { copyText } from '../lib/clipboard'
 import { tryFormatDateId } from '../lib/dateFormat'
+import { rsvpClosed } from '../lib/rsvpDeadline'
 import {
   buildInviteUrl,
   fillMessage,
@@ -18,6 +19,29 @@ import type { ThemeId } from '../themes/types'
 import { matchGuests, type Guest, type GuestListApi } from './guestList'
 
 const FALLBACK_MESSAGE = 'Kepada Yth.\n{nama}\n\nKami mengundang Anda ke pernikahan kami:\n{link}'
+
+/** The reminder for guests who haven't answered yet (editable on the page). */
+function defaultReminder(hasDeadline: boolean) {
+  return [
+    'Halo {nama},',
+    '',
+    'Mengingatkan undangan pernikahan {mempelai} pada {tanggal}.',
+    hasDeadline
+      ? 'Mohon konfirmasi kehadiran Anda sebelum {batas} melalui link berikut:'
+      : 'Mohon konfirmasi kehadiran Anda melalui link berikut:',
+    '{link}',
+    '',
+    'Terima kasih.',
+  ].join('\n')
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z" />
+    </svg>
+  )
+}
 
 function load(key: string): string | null {
   try {
@@ -86,12 +110,17 @@ function SendInvitation({
   const DEFAULT_TEMPLATE = content.shareMessage ?? FALLBACK_MESSAGE
   const slug = new URL(coupleUrl).pathname.split('/').filter(Boolean).pop() ?? ''
   const templateKey = `sendInvitation.template.${slug}`
+  const reminderKey = `sendInvitation.reminder.${slug}`
+  const DEADLINE = content.rsvpDeadline ? tryFormatDateId(`${content.rsvpDeadline}T12:00:00+07:00`) : ''
+  const rsvpOpen = !rsvpClosed(content.rsvpDeadline)
+  const DEFAULT_REMINDER = defaultReminder(!!content.rsvpDeadline)
 
   const [themeId, setThemeId] = useState<ThemeId>(() =>
     resolveThemeId(window.location.search, defaultThemeId),
   )
   const [namesText, setNamesText] = useState('')
   const [template, setTemplate] = useState(() => load(templateKey) ?? DEFAULT_TEMPLATE)
+  const [reminder, setReminder] = useState(() => load(reminderKey) ?? DEFAULT_REMINDER)
   const [previewIndex, setPreviewIndex] = useState(0)
   const [guests, setGuests] = useState<Guest[]>([])
   const [listState, setListState] = useState<'loading' | 'ready' | 'saving' | 'error' | 'load-error'>(
@@ -188,12 +217,13 @@ function SendInvitation({
 
   const linkFor = (name: string, guest?: Guest) =>
     buildInviteUrl(coupleUrl, name, theme.code, guest && guestCodeOf(guest.id))
-  const messageFor = (name: string, guest?: Guest) =>
-    fillMessage(template, {
+  const messageFor = (name: string, guest?: Guest, text = template) =>
+    fillMessage(text, {
       nama: name || content.cover.defaultGuestLabel,
       link: linkFor(name, guest),
       mempelai: COUPLE,
       tanggal: DATE,
+      batas: DEADLINE,
     })
 
   async function copy(text: string, done: string) {
@@ -442,17 +472,35 @@ function SendInvitation({
                           className={`btn-outline text-sm ${ready ? '' : 'pointer-events-none opacity-50'}`}
                           onClick={() => void markSent(i)}
                         >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4"
-                            fill="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z" />
-                          </svg>
+                          <WhatsAppIcon />
                           WhatsApp
                         </a>
                       </div>
+                      {guest?.sentAt && !guest.reply && rsvpOpen && (
+                        <div
+                          className="mt-3 flex flex-wrap items-center gap-2 border-t border-black/10 pt-3"
+                          data-testid="reminder"
+                        >
+                          <span className="text-sm font-bold text-muted">Belum menjawab:</span>
+                          <button
+                            type="button"
+                            className="btn-outline text-sm"
+                            onClick={() => void copy(messageFor(name, guest, reminder), 'Pengingat tersalin!')}
+                          >
+                            Salin Pengingat
+                          </button>
+                          <a
+                            href={whatsappUrl(messageFor(name, guest, reminder))}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-outline text-sm"
+                            aria-label={`Kirim pengingat lewat WhatsApp: ${name}`}
+                          >
+                            <WhatsAppIcon />
+                            Pengingat
+                          </a>
+                        </div>
+                      )}
                     </li>
                   )
                 })}
@@ -479,8 +527,9 @@ function SendInvitation({
                   />
                   <p className="mt-1 text-sm text-muted">
                     Kode yang diganti otomatis: <code>{'{nama}'}</code>, <code>{'{link}'}</code>,{' '}
-                    <code>{'{mempelai}'}</code>, <code>{'{tanggal}'}</code>. Perubahan hanya
-                    tersimpan di browser ini.
+                    <code>{'{mempelai}'}</code>, <code>{'{tanggal}'}</code>,{' '}
+                    <code>{'{batas}'}</code> (batas konfirmasi). Perubahan hanya tersimpan di browser
+                    ini.
                   </p>
                   <button
                     type="button"
@@ -491,6 +540,34 @@ function SendInvitation({
                     }}
                   >
                     Kembalikan pesan awal
+                  </button>
+                </div>
+                <div>
+                  <label htmlFor="reminder-template" className="mb-1 block font-bold text-text">
+                    Pesan pengingat
+                  </label>
+                  <textarea
+                    id="reminder-template"
+                    className="field min-h-48 resize-y font-body text-sm"
+                    value={reminder}
+                    onChange={(e) => {
+                      setReminder(e.target.value)
+                      save(reminderKey, e.target.value)
+                    }}
+                  />
+                  <p className="mt-1 text-sm text-muted">
+                    Untuk tamu yang sudah dikirimi link tetapi belum menjawab. Kode yang sama dengan
+                    pesan di atas.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-outline mt-2 text-sm"
+                    onClick={() => {
+                      setReminder(DEFAULT_REMINDER)
+                      save(reminderKey, null)
+                    }}
+                  >
+                    Kembalikan pengingat awal
                   </button>
                 </div>
               </div>

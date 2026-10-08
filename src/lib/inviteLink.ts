@@ -31,12 +31,14 @@ export interface MessageValues {
   link: string
   mempelai: string
   tanggal: string
+  /** RSVP deadline, formatted; '' when there is none. */
+  batas: string
 }
 
-/** Fills `{nama}`, `{link}`, `{mempelai}` and `{tanggal}` in a message template. */
+/** Fills `{nama}`, `{link}`, `{mempelai}`, `{tanggal}` and `{batas}` in a message template. */
 export function fillMessage(template: string, values: MessageValues): string {
   return template.replace(
-    /\{(nama|link|mempelai|tanggal)\}/g,
+    /\{(nama|link|mempelai|tanggal|batas)\}/g,
     (_, key: keyof MessageValues) => values[key],
   )
 }

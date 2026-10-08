@@ -67,19 +67,20 @@ describe('isTooLong', () => {
 
 describe('fillMessage', () => {
   it('fills every placeholder, including repeats', () => {
-    const msg = fillMessage('{nama}|{link}|{mempelai}|{tanggal}|{nama}|{lainnya}', {
+    const msg = fillMessage('{nama}|{link}|{mempelai}|{tanggal}|{batas}|{nama}|{lainnya}', {
       nama: 'Budi',
       link: 'https://x.id/?inv=Budi&t=1',
       mempelai: 'Anisa & Raka',
       tanggal: 'Minggu, 14 Februari 2027',
+      batas: 'Senin, 1 Februari 2027',
     })
     expect(msg).toBe(
-      'Budi|https://x.id/?inv=Budi&t=1|Anisa & Raka|Minggu, 14 Februari 2027|Budi|{lainnya}',
+      'Budi|https://x.id/?inv=Budi&t=1|Anisa & Raka|Minggu, 14 Februari 2027|Senin, 1 Februari 2027|Budi|{lainnya}',
     )
   })
 
   it('does not treat $ in values as a replacement pattern', () => {
-    expect(fillMessage('{nama}', { nama: "$& $1 $'", link: '', mempelai: '', tanggal: '' })).toBe(
+    expect(fillMessage('{nama}', { nama: "$& $1 $'", link: '', mempelai: '', tanggal: '', batas: '' })).toBe(
       "$& $1 $'",
     )
   })

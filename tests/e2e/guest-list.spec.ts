@@ -71,4 +71,17 @@ test("a guest's reply through their own link shows on the couple's list", async 
   await page.getByLabel('Tampilkan').selectOption({ label: 'Belum menjawab' })
   await expect(rows).toHaveCount(1)
   await expect(rows.first()).toContainText('Bu Rina')
+
+  // Once Bu Rina was sent her link without answering, she gets a reminder; Budi doesn't.
+  await page.getByLabel('Tampilkan').selectOption({ label: 'Semua tamu' })
+  await expect(rows.nth(1).getByTestId('reminder')).toHaveCount(0)
+  await rows.nth(1).getByRole('button', { name: 'Salin Pesan' }).click()
+  const reminder = rows.nth(1).getByTestId('reminder')
+  await expect(reminder).toBeVisible()
+  await expect(rows.nth(0).getByTestId('reminder')).toHaveCount(0)
+  const wa = reminder.getByRole('link', { name: 'Kirim pengingat lewat WhatsApp: Bu Rina' })
+  const text = new URL((await wa.getAttribute('href'))!).searchParams.get('text')!
+  expect(text).toContain('Halo Bu Rina')
+  expect(text).toContain('Mengingatkan undangan pernikahan')
+  expect(text).toMatch(/[?&]g=[0-9a-f]{8}/) // her own link, so her answer is matched
 })
