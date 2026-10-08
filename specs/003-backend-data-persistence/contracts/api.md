@@ -105,9 +105,11 @@ If the cookie is missing, invalid, expired, or carries an older `passcode_versio
 The couple's saved guest names on the send-invitation page, shared with the admin (`/api/admin/couples/:id/guests`, same routes).
 | Method & path | Responses |
 |---|---|
-| `GET …/guests` | **200** `{ guests: { id, name, sentAt }[] }` in the couple's order |
+| `GET …/guests` | **200** `{ guests: { id, name, sentAt, reply, wished }[] }` in the couple's order. `reply` is `{ attendance, guestCount }` from the guest's latest RSVP through their link, else null; `wished` = a non-hidden wish came through their link |
 | `PUT …/guests` `{ names: string[] }` | **200** the new list. Max 1000 names of 200 characters; cleaned like the page (spaces collapsed, blanks dropped). A name that stays keeps its id and `sentAt`; repeated names match in order |
 | `PATCH …/guests/:guestId` `{ sent }` | **200** `{ guest }`. `sentAt` set to now, or cleared. **404** for another couple's guest |
+
+Personal links carry `&g=<code>`, the first 8 characters of the guest's id. `POST /api/public/couples/:slug/rsvp` and `/wishes` accept an optional `guestCode`; an unknown or malformed code is ignored. Removing a guest unlinks their replies; the replies stay.
 
 ### `POST /api/couple/:slug/lock`
 - **204**. Clears `wc_<coupleId>` ("Keluar" on the couple page).

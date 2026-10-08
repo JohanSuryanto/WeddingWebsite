@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { createCouple, fillRequired, login, PUBLIC_URL, save, uniqueSlug } from './helpers'
 
 test('the admin sets, copies and changes the passcode; changing it locks the couple out (US4-1, US4-6)', async ({

@@ -84,7 +84,7 @@ If the admin project is currently a static deploy of `dist/admin`, switch it to 
 
 - **Function region.** `vercel.json` sets the region to `sin1`, next to Neon Singapore.
 - **Cron.** The daily cleanup cron is in `vercel.json`. On the public project it returns 404, which is harmless.
-- **Remove old variables.** Delete the old `VITE_ADMIN_EMAIL` and `VITE_ADMIN_PASSWORD_SHA256`.
+- **Production only.** Limit the secrets (`DATABASE_URL`, `SESSION_SECRET`, `CLOUDINARY_API_*`, `ADMIN_*`, `CRON_SECRET`) to the Production environment, so preview builds can't reach the live database.
 
 ## 5. Moving 002 browser data online (one time)
 

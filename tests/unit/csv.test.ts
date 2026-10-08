@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { rsvpCsv } from '../../server/lib/csv'
+import { rsvpCsv } from '../../src/lib/csv'
 
 const row = (over: Partial<Parameters<typeof rsvpCsv>[0][number]> = {}) => ({
   name: 'Pak Andi',

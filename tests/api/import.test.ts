@@ -118,11 +118,13 @@ describe('export (US7, SC-005)', () => {
     })
     await uploadWithId(admin, id, { id: mediaId, kind: 'image', mime: 'image/webp' }, new Uint8Array([9, 8, 7, 6, 5, 4]))
     await admin.post(`/api/admin/import/couples/${id}/finish`, { status: 'active' })
-    const guest = new Client(t.app, PUBLIC_ORIGIN)
-    await guest.post('/api/public/couples/ekspor/rsvp', { name: 'Pak Andi', attendance: 'hadir', guestCount: 2 })
-    await guest.post('/api/public/couples/ekspor/wishes', { name: 'Bu Rina', message: 'Bahagia selalu' })
     const list = await admin.put(`/api/admin/couples/${id}/guests`, { names: ['Pak Andi', 'Bu Rina'] })
     await admin.patch(`/api/admin/couples/${id}/guests/${list.json.guests[0].id}`, { sent: true })
+    // Pak Andi answers through his own link, so the backup carries the link to his guest.
+    const guestCode = list.json.guests[0].id.slice(0, 8)
+    const guest = new Client(t.app, PUBLIC_ORIGIN)
+    await guest.post('/api/public/couples/ekspor/rsvp', { name: 'Pak Andi', attendance: 'hadir', guestCount: 2, guestCode })
+    await guest.post('/api/public/couples/ekspor/wishes', { name: 'Bu Rina', message: 'Bahagia selalu' })
     return admin
   }
 
@@ -136,6 +138,7 @@ describe('export (US7, SC-005)', () => {
     expect(doc.media[0]).not.toHaveProperty('data')
     expect(doc.rsvps).toHaveLength(1)
     expect(doc.guests).toHaveLength(2)
+    expect(doc.rsvps[0].guestId).toBe(doc.guests.find((g: { name: string }) => g.name === 'Pak Andi').id)
     expect(JSON.stringify(doc)).not.toContain('visitor')
 
     // The browser part: fetch each file's bytes from its URL.

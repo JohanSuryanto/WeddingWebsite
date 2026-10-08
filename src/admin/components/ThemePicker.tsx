@@ -14,7 +14,7 @@ export function ThemePicker({
   label?: string
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="grid gap-3 sm:grid-cols-3">
+    <div role="radiogroup" aria-label={label} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {Object.values(themes).map((t) => {
         const selected = t.id === value
         return (

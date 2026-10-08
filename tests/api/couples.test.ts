@@ -42,6 +42,16 @@ describe('couples (admin)', () => {
     expect(bad.status).toBe(400)
   })
 
+  it('accepts every theme, including Javanese Heritage (database check, migration 0004)', async () => {
+    const res = await admin.post('/api/admin/couples', {
+      slug: uniqueSlug(),
+      defaultTheme: 'javanese-heritage',
+      content: emptyContent('A', 'B'),
+    })
+    expect(res.status).toBe(201)
+    expect(res.json.couple.defaultTheme).toBe('javanese-heritage')
+  })
+
   it('rejects content without the basic structure', async () => {
     const res = await admin.post('/api/admin/couples', {
       slug: uniqueSlug(),

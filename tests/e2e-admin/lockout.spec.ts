@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { ADMIN, login } from './helpers'
 
 // Runs alone in the admin-lockout project (see playwright.config.ts): the lockout is

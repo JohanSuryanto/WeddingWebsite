@@ -1,7 +1,7 @@
-import { GUEST_NAME_MAX, GUEST_NAME_PARAM } from './guestName'
+import { GUEST_CODE_PARAM, GUEST_NAME_MAX, GUEST_NAME_PARAM } from './guestName'
 
-/** Builds a personal invitation link: `<base>?inv=<name>&t=<code>`. */
-export function buildInviteUrl(base: string, guestName: string, themeCode: string): string {
+/** Builds a personal invitation link: `<base>?inv=<name>&t=<theme>[&g=<guest code>]`. */
+export function buildInviteUrl(base: string, guestName: string, themeCode: string, guestCode?: string): string {
   const url = new URL(base)
   url.search = ''
   url.hash = ''
@@ -9,6 +9,7 @@ export function buildInviteUrl(base: string, guestName: string, themeCode: strin
   const name = guestName.trim()
   if (name) params.set(GUEST_NAME_PARAM, name)
   params.set('t', themeCode)
+  if (guestCode) params.set(GUEST_CODE_PARAM, guestCode)
   url.search = params.toString()
   return url.toString()
 }
@@ -30,12 +31,14 @@ export interface MessageValues {
   link: string
   mempelai: string
   tanggal: string
+  /** RSVP deadline, formatted; '' when there is none. */
+  batas: string
 }
 
-/** Fills `{nama}`, `{link}`, `{mempelai}` and `{tanggal}` in a message template. */
+/** Fills `{nama}`, `{link}`, `{mempelai}`, `{tanggal}` and `{batas}` in a message template. */
 export function fillMessage(template: string, values: MessageValues): string {
   return template.replace(
-    /\{(nama|link|mempelai|tanggal)\}/g,
+    /\{(nama|link|mempelai|tanggal|batas)\}/g,
     (_, key: keyof MessageValues) => values[key],
   )
 }

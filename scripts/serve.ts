@@ -1,7 +1,8 @@
 // Serves the two production builds like the real hosts do, plus the API:
 //   admin.localhost:<port> → dist/admin (fallback admin.html), /api → admin API
 //   localhost:<port>       → dist/public (fallback index.html), /api → public API
-// Reads .env.local (or the environment Playwright passes) for the API.
+// Reads .env.local (or the environment Playwright passes) for the API, and sends
+// the same security headers as production (from vercel.json), CSP included.
 // Usage: tsx scripts/serve.ts [port]
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
@@ -19,6 +20,12 @@ const env = loadEnv()
 await migrateDb(env.DATABASE_URL)
 const adminApi = getRequestListener(createApp({ ...env, API_SURFACE: 'admin' }).fetch)
 const publicApi = getRequestListener(createApp({ ...env, API_SURFACE: 'public' }).fetch)
+
+type VercelHeaders = { headers?: { source: string; headers: { key: string; value: string }[] }[] }
+const vercel = JSON.parse(readFileSync('vercel.json', 'utf8')) as VercelHeaders
+const SECURITY_HEADERS = Object.fromEntries(
+  (vercel.headers?.find((h) => h.source === '/(.*)')?.headers ?? []).map((h) => [h.key, h.value]),
+)
 
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -64,6 +71,7 @@ createServer((req, res) => {
     file = fallback
   }
   const headers = {
+    ...SECURITY_HEADERS,
     'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream',
     'Cache-Control': file === fallback ? 'no-cache' : 'public, max-age=3600',
     'Accept-Ranges': 'bytes',

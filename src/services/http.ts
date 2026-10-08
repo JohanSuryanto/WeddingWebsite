@@ -2,9 +2,16 @@
 import type { Attendance, Wish } from '../content/types'
 import { apiFetch } from '../data/http/client'
 import { RateLimitedError } from '../data/types'
+import { parseGuestCode } from '../lib/guestName'
 import { ValidationError, type RsvpResponse, type RsvpService, type WishService } from './types'
 
 const base = (slug: string) => `/public/couples/${encodeURIComponent(slug)}`
+
+/** The page's `?g=` code goes along, so the couple sees which listed guest replied. */
+const withGuestCode = <T extends object>(input: T) => ({
+  ...input,
+  guestCode: parseGuestCode(window.location.search) ?? undefined,
+})
 
 type WireRsvp = { name: string; attendance: Attendance; guestCount: number; submittedAt: string }
 type WireWish = Omit<Wish, 'createdAt'> & { createdAt: string }
@@ -26,7 +33,7 @@ export function createHttpRsvpService(slug: string): RsvpService {
     },
     async submit(input) {
       try {
-        const { rsvp } = await apiFetch<{ rsvp: WireRsvp }>(`${base(slug)}/rsvp`, { method: 'POST', body: input })
+        const { rsvp } = await apiFetch<{ rsvp: WireRsvp }>(`${base(slug)}/rsvp`, { method: 'POST', body: withGuestCode(input) })
         return toRsvp(rsvp)
       } catch (err) {
         asFormError(err)
@@ -44,7 +51,7 @@ export function createHttpWishService(slug: string): WishService {
     },
     async submit(input) {
       try {
-        const { wish } = await apiFetch<{ wish: WireWish }>(`${base(slug)}/wishes`, { method: 'POST', body: input })
+        const { wish } = await apiFetch<{ wish: WireWish }>(`${base(slug)}/wishes`, { method: 'POST', body: withGuestCode(input) })
         return toWish(wish)
       } catch (err) {
         asFormError(err)

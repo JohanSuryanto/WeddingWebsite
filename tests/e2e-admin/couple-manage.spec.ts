@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { createCouple, login, uniqueSlug } from './helpers'
 
 test('search, publish, duplicate and delete couples', async ({ page }) => {

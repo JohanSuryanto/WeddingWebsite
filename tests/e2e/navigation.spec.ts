@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { openInvitation } from './helpers'
 
 const SECTIONS = ['beranda', 'mempelai', 'acara', 'cerita', 'galeri', 'hadiah', 'rsvp', 'ucapan']

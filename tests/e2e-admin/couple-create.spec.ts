@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { createCouple, login, PUBLIC_URL, uniqueSlug } from './helpers'
 
 test('creating a couple suggests the address and rejects taken or reserved names', async ({

@@ -46,6 +46,8 @@ export async function upsertRsvp(
   coupleId: string,
   visitorHash: string,
   input: RsvpInput,
+  /** The saved guest whose link was used, if any (repos/guests.ts guestIdForCode). */
+  guestId: string | null = null,
 ): Promise<{ rsvp: RsvpRecord; replaced: boolean }> {
   const errors = validateRsvp(input)
   if (hasErrors(errors)) throw invalidBody(onlyErrors(errors))
@@ -60,6 +62,7 @@ export async function upsertRsvp(
       name: input.name.trim(),
       attendance,
       guestCount: attendance === 'hadir' ? input.guestCount : 0,
+      guestId,
       submittedAt: now,
       updatedAt: now,
     })
@@ -69,6 +72,8 @@ export async function upsertRsvp(
         name: input.name.trim(),
         attendance,
         guestCount: attendance === 'hadir' ? input.guestCount : 0,
+        // A later answer from a plain link keeps the guest it was matched to.
+        guestId: sql`coalesce(excluded.guest_id, ${rsvps.guestId})`,
         updatedAt: now,
       },
     })
@@ -84,7 +89,13 @@ export async function myRsvp(db: Db, coupleId: string, visitorHash: string): Pro
   return row ? toRsvpRecord(row) : null
 }
 
-export async function addWish(db: Db, coupleId: string, visitorHash: string, input: WishInput): Promise<WishRow> {
+export async function addWish(
+  db: Db,
+  coupleId: string,
+  visitorHash: string,
+  input: WishInput,
+  guestId: string | null = null,
+): Promise<WishRow> {
   const errors = validateWish(input)
   if (hasErrors(errors)) throw invalidBody(onlyErrors(errors))
   const [row] = await db
@@ -96,6 +107,7 @@ export async function addWish(db: Db, coupleId: string, visitorHash: string, inp
       name: input.name.trim(),
       message: input.message.trim(),
       attendance: input.attendance ?? null,
+      guestId,
     })
     .returning()
   return row

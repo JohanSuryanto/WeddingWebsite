@@ -1,4 +1,5 @@
 import type { Couple, WeddingEvent } from '../content/types'
+import { downloadBlob } from './download'
 
 const DEFAULT_DURATION_MS = 2 * 60 * 60 * 1000
 
@@ -68,12 +69,5 @@ export function buildIcs(events: WeddingEvent[], couple: Couple, now: Date = new
 
 export function downloadIcs(events: WeddingEvent[], couple: Couple): void {
   const blob = new Blob([buildIcs(events, couple)], { type: 'text/calendar;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'undangan-pernikahan.ics'
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  downloadBlob(blob, 'undangan-pernikahan.ics')
 }

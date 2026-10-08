@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Page } from '../fixtures'
 import { login, PUBLIC_URL } from './helpers'
 
 type Media = { id: string; coupleId: string; kind: string; mime: string; size: number; createdAt: string; data: string }

@@ -4,7 +4,10 @@ import { ToastProvider, useToast } from '../components/Toast'
 import { mainEvent, orderedCouple } from '../content/selectors'
 import type { WeddingContent } from '../content/types'
 import { copyText } from '../lib/clipboard'
+import { csvFileName, formatWib, toCsv } from '../lib/csv'
+import { downloadBlob } from '../lib/download'
 import { tryFormatDateId } from '../lib/dateFormat'
+import { rsvpClosed } from '../lib/rsvpDeadline'
 import {
   buildInviteUrl,
   fillMessage,
@@ -12,12 +15,35 @@ import {
   parseGuestList,
   whatsappUrl,
 } from '../lib/inviteLink'
-import { GUEST_NAME_MAX } from '../lib/guestName'
+import { GUEST_NAME_MAX, guestCodeOf } from '../lib/guestName'
 import { resolveThemeId, ThemeProvider, themes } from '../themes'
 import type { ThemeId } from '../themes/types'
 import { matchGuests, type Guest, type GuestListApi } from './guestList'
 
 const FALLBACK_MESSAGE = 'Kepada Yth.\n{nama}\n\nKami mengundang Anda ke pernikahan kami:\n{link}'
+
+/** The reminder for guests who haven't answered yet (editable on the page). */
+function defaultReminder(hasDeadline: boolean) {
+  return [
+    'Halo {nama},',
+    '',
+    'Mengingatkan undangan pernikahan {mempelai} pada {tanggal}.',
+    hasDeadline
+      ? 'Mohon konfirmasi kehadiran Anda sebelum {batas} melalui link berikut:'
+      : 'Mohon konfirmasi kehadiran Anda melalui link berikut:',
+    '{link}',
+    '',
+    'Terima kasih.',
+  ].join('\n')
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z" />
+    </svg>
+  )
+}
 
 function load(key: string): string | null {
   try {
@@ -86,18 +112,23 @@ function SendInvitation({
   const DEFAULT_TEMPLATE = content.shareMessage ?? FALLBACK_MESSAGE
   const slug = new URL(coupleUrl).pathname.split('/').filter(Boolean).pop() ?? ''
   const templateKey = `sendInvitation.template.${slug}`
+  const reminderKey = `sendInvitation.reminder.${slug}`
+  const DEADLINE = content.rsvpDeadline ? tryFormatDateId(`${content.rsvpDeadline}T12:00:00+07:00`) : ''
+  const rsvpOpen = !rsvpClosed(content.rsvpDeadline)
+  const DEFAULT_REMINDER = defaultReminder(!!content.rsvpDeadline)
 
   const [themeId, setThemeId] = useState<ThemeId>(() =>
     resolveThemeId(window.location.search, defaultThemeId),
   )
   const [namesText, setNamesText] = useState('')
   const [template, setTemplate] = useState(() => load(templateKey) ?? DEFAULT_TEMPLATE)
+  const [reminder, setReminder] = useState(() => load(reminderKey) ?? DEFAULT_REMINDER)
   const [previewIndex, setPreviewIndex] = useState(0)
   const [guests, setGuests] = useState<Guest[]>([])
   const [listState, setListState] = useState<'loading' | 'ready' | 'saving' | 'error' | 'load-error'>(
     guestList ? 'loading' : 'ready',
   )
-  const [hideSent, setHideSent] = useState(false)
+  const [show, setShow] = useState<'all' | 'unsent' | 'noReply'>('all')
   const saveSeq = useRef(0)
 
   const theme = themes[themeId]
@@ -107,6 +138,7 @@ function SendInvitation({
   const previewName = rows[Math.min(previewIndex, rows.length - 1)] || null
   const matched = useMemo(() => matchGuests(names, guests), [names, guests])
   const sentCount = matched.filter((g) => g?.sentAt).length
+  const repliedCount = matched.filter((g) => g?.reply).length
   // Never save over a list that didn't load: that would wipe it.
   const dirty =
     !!guestList &&
@@ -156,12 +188,19 @@ function SendInvitation({
     return () => window.clearTimeout(id)
   }, [dirty, saveNow])
 
-  /** Marks row `i` as sent (or not); saves pending edits first so the guest exists. */
+  /**
+   * A row can be shared once its guest is saved, so the link carries their code
+   * (`?g=`) and the reply is matched. New names wait the moment the autosave takes:
+   * copying has to happen right in the click (Safari), so it can't wait for a save.
+   */
+  const canShare = (i: number) =>
+    !guestList || listState === 'load-error' || !names[i] || !!matched[i]
+
+  /** Marks row `i` as sent (or not). */
   async function markSent(i: number, sent = true) {
-    if (!guestList || !names[i]) return
+    const guest = guestList ? matched[i] : undefined
+    if (!guestList || !guest || !!guest.sentAt === sent) return
     try {
-      const guest = dirty || !matched[i] ? matchGuests(names, await saveNow())[i] : matched[i]
-      if (!guest || !!guest.sentAt === sent) return
       const updated = await guestList.setSent(guest.id, sent)
       setGuests((list) => list.map((g) => (g.id === updated.id ? updated : g)))
     } catch {
@@ -178,14 +217,37 @@ function SendInvitation({
     return () => robots.remove()
   }, [COUPLE])
 
-  const linkFor = (name: string) => buildInviteUrl(coupleUrl, name, theme.code)
-  const messageFor = (name: string) =>
-    fillMessage(template, {
+  const linkFor = (name: string, guest?: Guest) =>
+    buildInviteUrl(coupleUrl, name, theme.code, guest && guestCodeOf(guest.id))
+  const messageFor = (name: string, guest?: Guest, text = template) =>
+    fillMessage(text, {
       nama: name || content.cover.defaultGuestLabel,
-      link: linkFor(name),
+      link: linkFor(name, guest),
       mempelai: COUPLE,
       tanggal: DATE,
+      batas: DEADLINE,
     })
+
+  /** The list as a spreadsheet: what the page shows, with each guest's own link. */
+  function downloadGuestList() {
+    const csv = toCsv(
+      ['No', 'Nama', 'Dikirim (WIB)', 'Jawaban', 'Jumlah Tamu', 'Ucapan', 'Link'],
+      names.map((name, i) => {
+        const guest = matched[i]
+        const reply = guest?.reply
+        return [
+          String(i + 1),
+          name,
+          guest?.sentAt ? formatWib(new Date(guest.sentAt)) : '',
+          !reply ? 'Belum menjawab' : reply.attendance === 'hadir' ? 'Hadir' : 'Tidak hadir',
+          reply?.attendance === 'hadir' ? String(reply.guestCount) : '',
+          guest?.wished ? 'Ya' : '',
+          linkFor(name, guest),
+        ]
+      }),
+    )
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), csvFileName(slug, new Date(), 'tamu'))
+  }
 
   async function copy(text: string, done: string) {
     toast((await copyText(text)) ? done : 'Gagal menyalin')
@@ -207,7 +269,7 @@ function SendInvitation({
         <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
           <div className="min-w-0 space-y-6">
             <Step n={1} title="Pilih Tema">
-              <div role="radiogroup" aria-label="Tema" className="grid gap-3 sm:grid-cols-3">
+              <div role="radiogroup" aria-label="Tema" className="grid gap-3 sm:grid-cols-2">
                 {Object.values(themes).map((t) => {
                   const selected = t.id === themeId
                   return (
@@ -292,15 +354,29 @@ function SendInvitation({
                   <p className="font-bold text-text" data-testid="sent-count">
                     {sentCount} dari {names.length} tamu sudah dikirim
                   </p>
-                  <label className="flex min-h-11 cursor-pointer items-center gap-2 text-muted">
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 accent-[var(--theme-primary)]"
-                      checked={hideSent}
-                      onChange={(e) => setHideSent(e.target.checked)}
-                    />
-                    Sembunyikan yang sudah dikirim
+                  <p className="font-bold text-text" data-testid="reply-count">
+                    {repliedCount} sudah menjawab
+                  </p>
+                  <label className="flex items-center gap-2 text-muted">
+                    Tampilkan
+                    <select
+                      className="field min-h-11 w-auto py-1 text-sm"
+                      value={show}
+                      onChange={(e) => setShow(e.target.value as typeof show)}
+                    >
+                      <option value="all">Semua tamu</option>
+                      <option value="unsent">Belum dikirim</option>
+                      <option value="noReply">Belum menjawab</option>
+                    </select>
                   </label>
+                  <button
+                    type="button"
+                    className="btn-outline text-sm"
+                    disabled={!names.every((_, i) => canShare(i))}
+                    onClick={downloadGuestList}
+                  >
+                    Unduh Daftar Tamu (Excel)
+                  </button>
                 </div>
               )}
               {names.length > 1 && (
@@ -308,9 +384,10 @@ function SendInvitation({
                   <button
                     type="button"
                     className="btn-outline text-sm"
+                    disabled={!names.every((_, i) => canShare(i))}
                     onClick={() =>
                       copy(
-                        names.map((n) => `${n}: ${linkFor(n)}`).join('\n'),
+                        names.map((n, i) => `${n}: ${linkFor(n, matched[i])}`).join('\n'),
                         'Semua link tersalin!',
                       )
                     }
@@ -321,9 +398,12 @@ function SendInvitation({
               )}
               <ul className="space-y-3" data-testid="invite-rows">
                 {rows.map((name, i) => {
-                  const sentAt = guestList ? matched[i]?.sentAt : null
-                  if (hideSent && sentAt) return null
-                  const link = linkFor(name)
+                  const guest = guestList ? matched[i] : undefined
+                  const sentAt = guest?.sentAt
+                  if (show === 'unsent' && sentAt) return null
+                  if (show === 'noReply' && guest?.reply) return null
+                  const ready = canShare(i)
+                  const link = linkFor(name, guest)
                   const previewing = i === Math.min(previewIndex, rows.length - 1)
                   return (
                     <li
@@ -355,6 +435,21 @@ function SendInvitation({
                             </button>
                           </span>
                         )}
+                        {guest?.reply && (
+                          <span
+                            className="rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-contrast"
+                            data-testid="reply-badge"
+                          >
+                            {guest.reply.attendance === 'hadir'
+                              ? `Hadir · ${guest.reply.guestCount} orang`
+                              : 'Tidak hadir'}
+                          </span>
+                        )}
+                        {guest?.wished && (
+                          <span className="text-xs font-bold text-muted" data-testid="wish-badge">
+                            Mengirim ucapan
+                          </span>
+                        )}
                         {isTooLong(name) && (
                           <span className="text-xs font-bold text-[#a33a50]">
                             Lebih dari {GUEST_NAME_MAX} karakter, akan dipotong
@@ -379,6 +474,8 @@ function SendInvitation({
                         <button
                           type="button"
                           className="btn-primary px-4 py-2 text-sm"
+                          disabled={!ready}
+                          title={ready ? undefined : 'Menyimpan nama tamu…'}
                           onClick={() => {
                             void copy(link, 'Link tersalin!')
                             void markSent(i)
@@ -389,31 +486,52 @@ function SendInvitation({
                         <button
                           type="button"
                           className="btn-outline text-sm"
+                          disabled={!ready}
+                          title={ready ? undefined : 'Menyimpan nama tamu…'}
                           onClick={() => {
-                            void copy(messageFor(name), 'Pesan tersalin!')
+                            void copy(messageFor(name, guest), 'Pesan tersalin!')
                             void markSent(i)
                           }}
                         >
                           Salin Pesan
                         </button>
                         <a
-                          href={whatsappUrl(messageFor(name))}
+                          href={ready ? whatsappUrl(messageFor(name, guest)) : undefined}
+                          aria-disabled={!ready || undefined}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn-outline text-sm"
+                          className={`btn-outline text-sm ${ready ? '' : 'pointer-events-none opacity-50'}`}
                           onClick={() => void markSent(i)}
                         >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4"
-                            fill="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z" />
-                          </svg>
+                          <WhatsAppIcon />
                           WhatsApp
                         </a>
                       </div>
+                      {guest?.sentAt && !guest.reply && rsvpOpen && (
+                        <div
+                          className="mt-3 flex flex-wrap items-center gap-2 border-t border-black/10 pt-3"
+                          data-testid="reminder"
+                        >
+                          <span className="text-sm font-bold text-muted">Belum menjawab:</span>
+                          <button
+                            type="button"
+                            className="btn-outline text-sm"
+                            onClick={() => void copy(messageFor(name, guest, reminder), 'Pengingat tersalin!')}
+                          >
+                            Salin Pengingat
+                          </button>
+                          <a
+                            href={whatsappUrl(messageFor(name, guest, reminder))}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-outline text-sm"
+                            aria-label={`Kirim pengingat lewat WhatsApp: ${name}`}
+                          >
+                            <WhatsAppIcon />
+                            Pengingat
+                          </a>
+                        </div>
+                      )}
                     </li>
                   )
                 })}
@@ -440,8 +558,9 @@ function SendInvitation({
                   />
                   <p className="mt-1 text-sm text-muted">
                     Kode yang diganti otomatis: <code>{'{nama}'}</code>, <code>{'{link}'}</code>,{' '}
-                    <code>{'{mempelai}'}</code>, <code>{'{tanggal}'}</code>. Perubahan hanya
-                    tersimpan di browser ini.
+                    <code>{'{mempelai}'}</code>, <code>{'{tanggal}'}</code>,{' '}
+                    <code>{'{batas}'}</code> (batas konfirmasi). Perubahan hanya tersimpan di browser
+                    ini.
                   </p>
                   <button
                     type="button"
@@ -454,8 +573,54 @@ function SendInvitation({
                     Kembalikan pesan awal
                   </button>
                 </div>
+                <div>
+                  <label htmlFor="reminder-template" className="mb-1 block font-bold text-text">
+                    Pesan pengingat
+                  </label>
+                  <textarea
+                    id="reminder-template"
+                    className="field min-h-48 resize-y font-body text-sm"
+                    value={reminder}
+                    onChange={(e) => {
+                      setReminder(e.target.value)
+                      save(reminderKey, e.target.value)
+                    }}
+                  />
+                  <p className="mt-1 text-sm text-muted">
+                    Untuk tamu yang sudah dikirimi link tetapi belum menjawab. Kode yang sama dengan
+                    pesan di atas.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-outline mt-2 text-sm"
+                    onClick={() => {
+                      setReminder(DEFAULT_REMINDER)
+                      save(reminderKey, null)
+                    }}
+                  >
+                    Kembalikan pengingat awal
+                  </button>
+                </div>
               </div>
             </details>
+
+            <section aria-labelledby="slideshow-heading" className="card p-5 sm:p-6">
+              <h2 id="slideshow-heading" className="font-heading text-xl text-text">
+                Tayangan ucapan di acara
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Tampilkan ucapan para tamu satu per satu di layar TV atau proyektor saat acara.
+                Ucapan baru langsung muncul; ucapan yang disembunyikan admin tidak ditampilkan.
+              </p>
+              <a
+                href={`${coupleUrl}/ucapan`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-outline mt-3 text-sm"
+              >
+                Buka tayangan ucapan
+              </a>
+            </section>
           </div>
 
           <aside aria-label="Tampilan undangan" className="lg:sticky lg:top-6">

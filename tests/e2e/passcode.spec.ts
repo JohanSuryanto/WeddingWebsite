@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { adminApi, duplicateSample } from './helpers'
 
 test('the send-invitation page stays locked until the right passcode (US4, SC-009, SC-010)', async ({

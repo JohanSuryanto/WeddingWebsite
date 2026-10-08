@@ -1,0 +1,2 @@
+ALTER TABLE "couples" DROP CONSTRAINT "couples_default_theme_check";--> statement-breakpoint
+ALTER TABLE "couples" ADD CONSTRAINT "couples_default_theme_check" CHECK ("couples"."default_theme" in ('romantic-floral', 'elegant-classic', 'rustic-garden', 'javanese-heritage'));

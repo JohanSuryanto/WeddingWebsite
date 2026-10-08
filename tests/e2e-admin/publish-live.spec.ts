@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { login, PUBLIC_URL } from './helpers'
 
 test('a couple published in the admin is live on the public site for any browser (US1, SC-001)', async ({

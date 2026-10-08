@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { adminApi, duplicateSample, openInvitation, openSendInvitation, scrollThrough } from './helpers'
 
 async function assertNoHorizontalOverflow(page: import('@playwright/test').Page) {

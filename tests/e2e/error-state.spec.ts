@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 
 test('a server outage shows a retry message, and retry loads the invitation (FR-024)', async ({ page }) => {
   await page.route('**/api/public/couples/**', (route) => route.abort())

@@ -95,13 +95,14 @@ RSVPs and wishes are saved. A guest who answers again from the same browser repl
 | Romantic Floral: blush pink, watercolor flowers | `romantic-floral` | `1` |
 | Elegant Classic: ivory, gold and navy, monogram | `elegant-classic` | `2` |
 | Rustic Garden: sage, cream and brown, eucalyptus | `rustic-garden` | `3` |
+| Javanese Heritage: soga brown, cream and gold, batik kawung, gunungan | `javanese-heritage` | `4` |
 
 Each couple has a default theme (dashboard → Pengaturan). `?t=<number>` overrides it for one link.
 
-**Adding a theme** (e.g. `modern-minimal`):
-1. Copy `src/themes/rustic-garden/` and adjust `tokens.css` (every required token, see [theme contract](specs/001-wedding-invitation-site/contracts/theme-contract.md)), `ornaments/`, and `index.ts` (with the next free number as `code`, e.g. `'4'`).
+**Adding a theme** (e.g. `modern-minimal`; Javanese Heritage was added this way):
+1. Copy `src/themes/rustic-garden/` and adjust `tokens.css` (every required token, see [theme contract](specs/001-wedding-invitation-site/contracts/theme-contract.md)), `ornaments/`, and `index.ts` (with the next free number as `code`, e.g. `'5'`).
 2. Add the id to `ThemeId` in `src/themes/types.ts`, register it in `src/themes/index.ts`, and add it to `themeIdSchema` in `src/data/schema.ts`.
-3. Add it to the `default_theme` check in `server/db/schema.ts` and run `npm run db:generate` for a migration.
+3. Add it to the `default_theme` check in `server/db/schema.ts` and run `npm run db:generate` for a migration (run it on Neon before merging, see *After going live*).
 4. `npm test` checks every theme defines all required tokens; `npm run test:e2e` checks every theme at all screen sizes.
 
 ## Landing page
@@ -126,11 +127,16 @@ Full steps: [`specs/003-backend-data-persistence/quickstart.md`](specs/003-backe
    - `PUBLIC_ORIGIN=https://wedding.johansuryanto.dev`, `ADMIN_ORIGIN=https://admin.wedding.johansuryanto.dev`, `VITE_PUBLIC_SITE_URL=https://wedding.johansuryanto.dev`
    - `API_SURFACE=public` (public project) or `admin` (admin project)
    - Admin project only: `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `CRON_SECRET`
-   - Remove the old `VITE_ADMIN_EMAIL` and `VITE_ADMIN_PASSWORD_SHA256`.
+   - Limit the secrets (`DATABASE_URL`, `SESSION_SECRET`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `ADMIN_*`, `CRON_SECRET`) to the **Production** environment, so PR preview builds can't reach the live database.
 4. From your computer, once, with the production values in your environment: `npm run db:migrate` then `npm run db:seed` (prints the sample couple's passcode).
-5. Moving from the browser-only dashboard: download a backup from the **old** admin **before** switching, then restore it in the new one (**Cadangan**).
+5. DNS: a CNAME per domain, with the value each Vercel project's **Settings → Domains** shows.
 
-`vercel.json` sends `/api/*` to the function and every other unknown path to the app; a daily cron (`/api/cron/cleanup`) retries file deletions and removes unfinished uploads. The admin build also writes `index.html` (a copy of `admin.html`) so the same rule serves both sites.
+**After going live:**
+- `main` is production: every merge redeploys both sites. `main` is protected, so changes arrive through a pull request with all CI checks green.
+- **A PR that adds a migration** (a new file in `server/db/migrations`): once its CI is green and **before merging**, run `npm run db:migrate` once with the Neon `DATABASE_URL` in your environment, like step 4. Then merge. Migrations only add things, so the live (old) code keeps working on the new schema, while new code deployed before its migration would fail.
+- Download a backup (**Cadangan → Unduh Cadangan**) regularly; Neon Free keeps only a short restore history.
+
+`vercel.json` sends `/api/*` to the function and every other unknown path to the app; a daily cron (`/api/cron/cleanup`) retries file deletions and removes unfinished uploads. The admin build also writes `index.html` (a copy of `admin.html`) so the same rule serves both sites. It also sets the security headers, including a **Content-Security-Policy** (scripts from the site only; images, audio and uploads also from Cloudinary). The e2e server (`scripts/serve.ts`) sends the same headers, and every e2e test fails on a CSP violation (`tests/fixtures.ts`), so a change that needs a new source has to update `vercel.json`.
 
 **Free-tier watch** (check monthly; the dashboard's Penyimpanan meter shows the first two):
 

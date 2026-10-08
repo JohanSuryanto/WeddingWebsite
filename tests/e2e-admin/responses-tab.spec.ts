@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { login, PUBLIC_URL } from './helpers'
 
 test('the Respons tab shows guest responses; hiding a wish hides it publicly; CSV downloads (FR-019)', async ({

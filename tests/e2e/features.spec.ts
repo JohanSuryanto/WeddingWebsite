@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { openInvitation } from './helpers'
 
 test('music stays silent until "Buka Undangan" is clicked', async ({ page }) => {

@@ -52,6 +52,7 @@ const responsesBody = z.object({
         name: z.string().min(1).max(60),
         attendance,
         guestCount: z.number().int().min(0).max(5),
+        guestId: uuid.nullable().optional(),
         submittedAt: iso,
         updatedAt: iso,
       }),
@@ -65,6 +66,7 @@ const responsesBody = z.object({
         message: z.string().min(1).max(500),
         attendance: attendance.nullable().optional(),
         hidden: z.boolean().optional(),
+        guestId: uuid.nullable().optional(),
         createdAt: iso,
       }),
     )
@@ -91,7 +93,7 @@ async function exportDocument(db: Db) {
   const mediaRows = await db.select().from(media).where(eq(media.status, 'ready'))
   const rsvpRows = await db.select().from(rsvps)
   const wishRows = await db.select().from(wishes)
-  const guestRows = await db.select().from(guests)
+  const guestRows = await db.select().from(guests).orderBy(guests.coupleId, guests.position)
   return {
     format: 'wedding-admin-backup' as const,
     formatVersion: 2 as const,
@@ -105,6 +107,7 @@ async function exportDocument(db: Db) {
       name: r.name,
       attendance: r.attendance,
       guestCount: r.guestCount,
+      guestId: r.guestId,
       submittedAt: r.submittedAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     })),
@@ -115,6 +118,7 @@ async function exportDocument(db: Db) {
       message: w.message,
       attendance: w.attendance,
       hidden: w.hidden,
+      guestId: w.guestId,
       createdAt: w.createdAt.toISOString(),
     })),
     guests: guestRows.map((g) => ({
@@ -240,6 +244,27 @@ export function adminImportRoutes() {
         const couple = await getCoupleRow(c.var.db, c.req.param('id'))
         const body = await readJson(c, responsesBody)
         let inserted = 0
+        // Guests first: restored RSVPs and wishes may point at them.
+        const guestList = body.guests ?? []
+        if (guestList.length) {
+          const rows = await c.var.db
+            .insert(guests)
+            .values(
+              guestList.map((g) => ({
+                ...g,
+                coupleId: couple.id,
+                sentAt: g.sentAt ? new Date(g.sentAt) : null,
+              })),
+            )
+            .onConflictDoNothing()
+            .returning({ id: guests.id })
+          inserted += rows.length
+        }
+        // A link to a guest this couple doesn't have is dropped, not an error.
+        const known = new Set(
+          (await c.var.db.select({ id: guests.id }).from(guests).where(eq(guests.coupleId, couple.id))).map((g) => g.id),
+        )
+        const guestId = (id: string | null | undefined) => (id && known.has(id) ? id : null)
         if (body.rsvps.length) {
           const rows = await c.var.db
             .insert(rsvps)
@@ -247,6 +272,7 @@ export function adminImportRoutes() {
               body.rsvps.map((r) => ({
                 ...r,
                 coupleId: couple.id,
+                guestId: guestId(r.guestId),
                 // Visitor hashes aren't in backups; restored answers can't be replaced by "same browser".
                 visitorHash: `restored:${r.id}`,
                 submittedAt: new Date(r.submittedAt),
@@ -264,6 +290,7 @@ export function adminImportRoutes() {
               body.wishes.map((w) => ({
                 ...w,
                 coupleId: couple.id,
+                guestId: guestId(w.guestId),
                 attendance: w.attendance ?? null,
                 hidden: w.hidden ?? false,
                 createdAt: new Date(w.createdAt),
@@ -271,21 +298,6 @@ export function adminImportRoutes() {
             )
             .onConflictDoNothing()
             .returning({ id: wishes.id })
-          inserted += rows.length
-        }
-        const guestList = body.guests ?? []
-        if (guestList.length) {
-          const rows = await c.var.db
-            .insert(guests)
-            .values(
-              guestList.map((g) => ({
-                ...g,
-                coupleId: couple.id,
-                sentAt: g.sentAt ? new Date(g.sentAt) : null,
-              })),
-            )
-            .onConflictDoNothing()
-            .returning({ id: guests.id })
           inserted += rows.length
         }
         const total = body.rsvps.length + body.wishes.length + guestList.length

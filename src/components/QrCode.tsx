@@ -1,5 +1,6 @@
 import qrcode from 'qrcode-generator'
 import { useMemo } from 'react'
+import { downloadBlob } from '../lib/download'
 
 /** QR code for an invitation link, with an SVG download for printed cards. */
 export function QrCode({ url, fileName }: { url: string; fileName: string }) {
@@ -11,12 +12,7 @@ export function QrCode({ url, fileName }: { url: string; fileName: string }) {
   }, [url])
 
   function download() {
-    const href = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
-    const a = document.createElement('a')
-    a.href = href
-    a.download = `${fileName}.svg`
-    a.click()
-    window.setTimeout(() => URL.revokeObjectURL(href), 1000)
+    downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `${fileName}.svg`)
   }
 
   return (

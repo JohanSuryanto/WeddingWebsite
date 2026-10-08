@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { createCouple, FIXTURES, login } from './helpers'
 
 test('every upload opens a picker: sample photos or music, or a file from this device', async ({ page }) => {

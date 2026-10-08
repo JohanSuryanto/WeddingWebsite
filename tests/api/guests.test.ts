@@ -91,3 +91,72 @@ describe('guest list (send-invitation page)', () => {
     expect((await admin.get(`/api/admin/couples/${id}/guests`)).status).toBe(404)
   })
 })
+
+describe('who replied (RSVPs and wishes through a guest link)', () => {
+  async function liveWithGuests(names: string[]) {
+    const c = await couple()
+    await admin.post(`/api/admin/couples/${c.id}/status`, { status: 'active' })
+    const list: Guest[] = (await admin.req('PUT', `/api/admin/couples/${c.id}/guests`, { body: { names } })).json.guests
+    return { ...c, list }
+  }
+  const code = (g: Guest) => g.id.slice(0, 8)
+  const replies = async (id: string) =>
+    (await admin.get(`/api/admin/couples/${id}/guests`)).json.guests as (Guest & {
+      reply: { attendance: string; guestCount: number } | null
+      wished: boolean
+    })[]
+
+  it('matches an RSVP and a wish to the guest whose link was used', async () => {
+    const { id, slug, list } = await liveWithGuests(['Budi Santoso', 'Bu Rina'])
+    const budi = new Client(t.app, PUBLIC_ORIGIN)
+    await budi.post(`/api/public/couples/${slug}/rsvp`, {
+      name: 'Budi',
+      attendance: 'hadir',
+      guestCount: 2,
+      guestCode: code(list[0]),
+    })
+    await budi.post(`/api/public/couples/${slug}/wishes`, { name: 'Budi', message: 'Selamat!', guestCode: code(list[0]) })
+
+    const [b, r] = await replies(id)
+    expect(b.reply).toEqual({ attendance: 'hadir', guestCount: 2 })
+    expect(b.wished).toBe(true)
+    expect(r.reply).toBeNull()
+    expect(r.wished).toBe(false)
+
+    // Changing the answer from the same browser updates it, even from a plain link.
+    await budi.post(`/api/public/couples/${slug}/rsvp`, { name: 'Budi', attendance: 'tidak_hadir', guestCount: 0 })
+    expect((await replies(id))[0].reply).toEqual({ attendance: 'tidak_hadir', guestCount: 0 })
+  })
+
+  it('ignores unknown, malformed and other couples\' codes', async () => {
+    const one = await liveWithGuests(['Tamu Satu'])
+    const two = await liveWithGuests(['Tamu Dua'])
+    for (const guestCode of ['00000000', 'bukan-kode', code(two.list[0])]) {
+      const res = await new Client(t.app, PUBLIC_ORIGIN).post(`/api/public/couples/${one.slug}/rsvp`, {
+        name: 'Seseorang',
+        attendance: 'hadir',
+        guestCount: 1,
+        guestCode,
+      })
+      expect(res.status).toBe(200)
+    }
+    expect((await replies(one.id))[0].reply).toBeNull()
+    expect((await replies(two.id))[0].reply).toBeNull()
+  })
+
+  it('editing the list keeps replies linked; removing a guest only unlinks them', async () => {
+    const { id, slug, list } = await liveWithGuests(['A1', 'B2'])
+    await new Client(t.app, PUBLIC_ORIGIN).post(`/api/public/couples/${slug}/rsvp`, {
+      name: 'Tamu B',
+      attendance: 'hadir',
+      guestCount: 3,
+      guestCode: code(list[1]),
+    })
+    await admin.req('PUT', `/api/admin/couples/${id}/guests`, { body: { names: ['C3', 'B2', 'A1'] } })
+    expect((await replies(id)).find((g) => g.name === 'B2')!.reply).toEqual({ attendance: 'hadir', guestCount: 3 })
+
+    await admin.req('PUT', `/api/admin/couples/${id}/guests`, { body: { names: ['C3', 'A1'] } })
+    const responses = (await admin.get(`/api/admin/couples/${id}/responses`)).json
+    expect(responses.rsvps).toHaveLength(1) // the RSVP itself stays
+  })
+})

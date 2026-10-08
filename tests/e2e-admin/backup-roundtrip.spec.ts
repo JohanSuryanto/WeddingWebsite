@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixtures'
 import { login, PUBLIC_URL } from './helpers'
 
 test('a full backup brings a deleted couple back with photos and responses (US7, SC-005)', async ({

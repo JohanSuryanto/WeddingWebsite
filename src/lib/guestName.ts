@@ -50,3 +50,15 @@ export function parseGuestName(search: string): string | null {
   if (!cleaned) return null
   return Array.from(cleaned).slice(0, GUEST_NAME_MAX).join('').trim()
 }
+
+/** `?g=`: which saved guest a personal link is for, so their reply can be matched. */
+export const GUEST_CODE_PARAM = 'g'
+
+/** A guest's link code: the first 8 characters of their id. */
+export const guestCodeOf = (guestId: string) => guestId.slice(0, 8).toLowerCase()
+
+/** The guest code from `?g=`, or null when absent or malformed. */
+export function parseGuestCode(search: string): string | null {
+  const code = new URLSearchParams(search).get(GUEST_CODE_PARAM)?.toLowerCase()
+  return code && /^[0-9a-f]{8}$/.test(code) ? code : null
+}
