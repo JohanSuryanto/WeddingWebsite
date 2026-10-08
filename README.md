@@ -95,13 +95,14 @@ RSVPs and wishes are saved. A guest who answers again from the same browser repl
 | Romantic Floral: blush pink, watercolor flowers | `romantic-floral` | `1` |
 | Elegant Classic: ivory, gold and navy, monogram | `elegant-classic` | `2` |
 | Rustic Garden: sage, cream and brown, eucalyptus | `rustic-garden` | `3` |
+| Javanese Heritage: soga brown, cream and gold, batik kawung, gunungan | `javanese-heritage` | `4` |
 
 Each couple has a default theme (dashboard → Pengaturan). `?t=<number>` overrides it for one link.
 
-**Adding a theme** (e.g. `modern-minimal`):
-1. Copy `src/themes/rustic-garden/` and adjust `tokens.css` (every required token, see [theme contract](specs/001-wedding-invitation-site/contracts/theme-contract.md)), `ornaments/`, and `index.ts` (with the next free number as `code`, e.g. `'4'`).
+**Adding a theme** (e.g. `modern-minimal`; Javanese Heritage was added this way):
+1. Copy `src/themes/rustic-garden/` and adjust `tokens.css` (every required token, see [theme contract](specs/001-wedding-invitation-site/contracts/theme-contract.md)), `ornaments/`, and `index.ts` (with the next free number as `code`, e.g. `'5'`).
 2. Add the id to `ThemeId` in `src/themes/types.ts`, register it in `src/themes/index.ts`, and add it to `themeIdSchema` in `src/data/schema.ts`.
-3. Add it to the `default_theme` check in `server/db/schema.ts` and run `npm run db:generate` for a migration.
+3. Add it to the `default_theme` check in `server/db/schema.ts` and run `npm run db:generate` for a migration (run it on Neon before merging, see *After going live*).
 4. `npm test` checks every theme defines all required tokens; `npm run test:e2e` checks every theme at all screen sizes.
 
 ## Landing page

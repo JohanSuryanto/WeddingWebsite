@@ -75,7 +75,7 @@ export function Landing() {
               Pilih Tema
             </h2>
             <SectionDivider />
-            <ul className="mt-8 grid gap-5 md:grid-cols-3" data-testid="theme-examples">
+            <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4" data-testid="theme-examples">
               {Object.values(themes).map((t) => {
                 const { CoverBackdrop: Backdrop } = t.ornaments
                 return (

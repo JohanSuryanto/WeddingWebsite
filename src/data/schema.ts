@@ -164,7 +164,7 @@ export const slugSchema = z.string().superRefine((s, ctx) => {
   if (message) ctx.addIssue({ code: 'custom', message })
 })
 
-export const themeIdSchema = z.enum(['romantic-floral', 'elegant-classic', 'rustic-garden'])
+export const themeIdSchema = z.enum(['romantic-floral', 'elegant-classic', 'rustic-garden', 'javanese-heritage'])
 
 export const coupleSchema = z.object({
   id: z.string().min(1),

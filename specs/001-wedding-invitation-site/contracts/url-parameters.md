@@ -7,7 +7,7 @@ The couple shares a link like `https://wedding.johansuryanto.dev/<couple>?inv=Bu
 | Param | Required | Meaning | Processing |
 |---|---|---|---|
 | `inv` | no | Guest name shown on the cover (between "Kepada Yth." and "Mohon maaf apabila ada kesalahan penulisan nama dan gelar") and pre-filled in the RSVP and wishes forms | URL-decode (`+` → space). An **unencoded `&` stays part of the name**: segments after `inv=` are rejoined with `&` until the next segment that looks like another parameter (`key=value`, e.g. `t=2`, `fbclid=…`). Then remove control characters, collapse repeated whitespace, trim, strip one pair of surrounding `{ }` (from the `?inv={Nama}` template), and keep at most 60 characters. Empty result → treated as absent. Malformed `%` encoding is kept as-is instead of failing. |
-| `t` | no | Theme preview number (see [theme-contract.md](./theme-contract.md)) | `1`, `2` or `3`; anything else is ignored. |
+| `t` | no | Theme preview number (see [theme-contract.md](./theme-contract.md)) | `1`–`4`; anything else is ignored. |
 
 The old `to` parameter was renamed to `inv` and is no longer read.
 

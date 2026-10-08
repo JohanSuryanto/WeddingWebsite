@@ -246,7 +246,7 @@ function SendInvitation({
         <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
           <div className="min-w-0 space-y-6">
             <Step n={1} title="Pilih Tema">
-              <div role="radiogroup" aria-label="Tema" className="grid gap-3 sm:grid-cols-3">
+              <div role="radiogroup" aria-label="Tema" className="grid gap-3 sm:grid-cols-2">
                 {Object.values(themes).map((t) => {
                   const selected = t.id === themeId
                   return (

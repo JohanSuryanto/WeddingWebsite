@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 
-export type ThemeId = 'romantic-floral' | 'elegant-classic' | 'rustic-garden'
+export type ThemeId = 'romantic-floral' | 'elegant-classic' | 'rustic-garden' | 'javanese-heritage'
 
 export interface ThemeOrnaments {
   /** Decorative layer behind the cover content. */

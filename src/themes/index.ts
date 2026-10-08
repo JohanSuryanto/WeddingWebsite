@@ -1,4 +1,5 @@
 import { elegantClassic } from './elegant-classic'
+import { javaneseHeritage } from './javanese-heritage'
 import { romanticFloral } from './romantic-floral'
 import { rusticGarden } from './rustic-garden'
 import type { Theme, ThemeId } from './types'
@@ -8,6 +9,7 @@ export const themes: Record<ThemeId, Theme> = {
   'romantic-floral': romanticFloral,
   'elegant-classic': elegantClassic,
   'rustic-garden': rusticGarden,
+  'javanese-heritage': javaneseHeritage,
 }
 
 /** Preview short codes, e.g. `1` → romantic-floral (`?t=1`). */

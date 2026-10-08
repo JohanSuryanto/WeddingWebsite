@@ -1,0 +1,72 @@
+[data-theme='javanese-heritage'] {
+  --theme-bg: #f6efe2;
+  --theme-surface: #fffaf1;
+  --theme-surface-alt: #eee2c9;
+  --theme-primary: #6b4226;
+  --theme-primary-contrast: #fff8ec;
+  --theme-accent: #a8792e;
+  --theme-highlight: #ead9b6;
+  --theme-highlight-text: #43281a;
+  --theme-text: #3a281c;
+  --theme-text-muted: #6b5644;
+  --theme-font-script: 'Pinyon Script', cursive;
+  --theme-font-heading: 'Cormorant Garamond', Georgia, serif;
+  --theme-font-body: 'EB Garamond', Georgia, serif;
+  --theme-radius-card: 0.5rem;
+  --theme-shadow-card: 0 14px 30px -18px rgb(67 40 26 / 0.45);
+  --theme-anim-reveal: jh-unfold;
+
+  /* Batik kawung: four ovals around a dot, drawn as a faint repeating tile. */
+  --jh-kawung: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Cg fill='none' stroke='%236b4226' stroke-opacity='0.09' stroke-width='1.2'%3E%3Cellipse cx='22' cy='11' rx='6' ry='10'/%3E%3Cellipse cx='22' cy='33' rx='6' ry='10'/%3E%3Cellipse cx='11' cy='22' rx='10' ry='6'/%3E%3Cellipse cx='33' cy='22' rx='10' ry='6'/%3E%3C/g%3E%3Ccircle cx='22' cy='22' r='1.6' fill='%23a8792e' fill-opacity='0.25'/%3E%3C/svg%3E");
+}
+
+[data-theme='javanese-heritage'] section,
+[data-theme='javanese-heritage'] [role='dialog'] {
+  background-image: var(--jh-kawung);
+}
+
+[data-theme='javanese-heritage'] h2,
+[data-theme='javanese-heritage'] h3 {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* A thin gold frame inside each card, like the border of a batik cloth. */
+[data-theme='javanese-heritage'] .card {
+  outline: 1px solid rgb(168 121 46 / 0.45);
+  outline-offset: -7px;
+}
+
+@keyframes jh-unfold {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes jh-melati-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(var(--drift, 30px), 110vh, 0) rotate(240deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme='javanese-heritage'] .reveal {
+    opacity: 0;
+  }
+  [data-theme='javanese-heritage'] .reveal.is-visible {
+    animation: var(--theme-anim-reveal) 1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}

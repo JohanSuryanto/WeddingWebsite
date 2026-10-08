@@ -27,7 +27,7 @@ export const couples = pgTable(
     slug: text('slug').notNull().unique(),
     status: text('status', { enum: ['draft', 'active'] }).notNull().default('draft'),
     defaultTheme: text('default_theme', {
-      enum: ['romantic-floral', 'elegant-classic', 'rustic-garden'],
+      enum: ['romantic-floral', 'elegant-classic', 'rustic-garden', 'javanese-heritage'],
     }).notNull(),
     content: jsonb('content').$type<WeddingContent>().notNull(),
     version: integer('version').notNull().default(1),
@@ -43,7 +43,7 @@ export const couples = pgTable(
     check('couples_status_check', sql`${t.status} in ('draft', 'active')`),
     check(
       'couples_default_theme_check',
-      sql`${t.defaultTheme} in ('romantic-floral', 'elegant-classic', 'rustic-garden')`,
+      sql`${t.defaultTheme} in ('romantic-floral', 'elegant-classic', 'rustic-garden', 'javanese-heritage')`,
     ),
     check('couples_passcode_check', sql`${t.passcode} ~ '^[0-9]{4}$'`),
   ],
