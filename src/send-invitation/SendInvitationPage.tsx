@@ -4,6 +4,8 @@ import { ToastProvider, useToast } from '../components/Toast'
 import { mainEvent, orderedCouple } from '../content/selectors'
 import type { WeddingContent } from '../content/types'
 import { copyText } from '../lib/clipboard'
+import { csvFileName, formatWib, toCsv } from '../lib/csv'
+import { downloadBlob } from '../lib/download'
 import { tryFormatDateId } from '../lib/dateFormat'
 import { rsvpClosed } from '../lib/rsvpDeadline'
 import {
@@ -226,6 +228,27 @@ function SendInvitation({
       batas: DEADLINE,
     })
 
+  /** The list as a spreadsheet: what the page shows, with each guest's own link. */
+  function downloadGuestList() {
+    const csv = toCsv(
+      ['No', 'Nama', 'Dikirim (WIB)', 'Jawaban', 'Jumlah Tamu', 'Ucapan', 'Link'],
+      names.map((name, i) => {
+        const guest = matched[i]
+        const reply = guest?.reply
+        return [
+          String(i + 1),
+          name,
+          guest?.sentAt ? formatWib(new Date(guest.sentAt)) : '',
+          !reply ? 'Belum menjawab' : reply.attendance === 'hadir' ? 'Hadir' : 'Tidak hadir',
+          reply?.attendance === 'hadir' ? String(reply.guestCount) : '',
+          guest?.wished ? 'Ya' : '',
+          linkFor(name, guest),
+        ]
+      }),
+    )
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), csvFileName(slug, new Date(), 'tamu'))
+  }
+
   async function copy(text: string, done: string) {
     toast((await copyText(text)) ? done : 'Gagal menyalin')
   }
@@ -346,6 +369,14 @@ function SendInvitation({
                       <option value="noReply">Belum menjawab</option>
                     </select>
                   </label>
+                  <button
+                    type="button"
+                    className="btn-outline text-sm"
+                    disabled={!names.every((_, i) => canShare(i))}
+                    onClick={downloadGuestList}
+                  >
+                    Unduh Daftar Tamu (Excel)
+                  </button>
                 </div>
               )}
               {names.length > 1 && (

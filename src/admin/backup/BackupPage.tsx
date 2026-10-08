@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../../components/Toast'
 import { backupFileName, parseBackup, type ParsedBackup } from '../../data/backup'
+import { downloadBlob } from '../../lib/download'
 import { formatSize } from '../media/compressImage'
 import { runExport } from './export'
 import {
@@ -57,14 +58,7 @@ export default function BackupPage() {
     setExporting({ done: 0, total: 0 })
     try {
       const blob = await runExport((done, total) => setExporting({ done, total }))
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = backupFileName()
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      downloadBlob(blob, backupFileName())
       const now = new Date().toISOString()
       try {
         localStorage.setItem(LAST_BACKUP_KEY, now)

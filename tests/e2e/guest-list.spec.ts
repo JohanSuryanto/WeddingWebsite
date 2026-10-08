@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from '../fixtures'
 import { adminApi, duplicateSample, openSendInvitation } from './helpers'
 
@@ -84,4 +85,18 @@ test("a guest's reply through their own link shows on the couple's list", async 
   expect(text).toContain('Halo Bu Rina')
   expect(text).toContain('Mengingatkan undangan pernikahan')
   expect(text).toMatch(/[?&]g=[0-9a-f]{8}/) // her own link, so her answer is matched
+
+  // The list as a spreadsheet: what the page shows, with each guest's own link.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Unduh Daftar Tamu (Excel)' }).click(),
+  ])
+  expect(download.suggestedFilename()).toMatch(new RegExp(`^tamu-${couple.slug}-\\d{8}\\.csv$`))
+  const csv = readFileSync((await download.path())!, 'utf8')
+  expect(csv.charCodeAt(0)).toBe(0xfeff) // byte-order mark, so Excel reads UTF-8
+  const lines = csv.slice(1).trim().split('\r\n')
+  expect(lines[0]).toBe('No,Nama,Dikirim (WIB),Jawaban,Jumlah Tamu,Ucapan,Link')
+  // Budi wasn't marked sent here (his link was read, not copied); he did answer.
+  expect(lines[1]).toMatch(/^1,Budi Santoso,,Hadir,2,,http:\/\/localhost:4817\/.*g=[0-9a-f]{8}$/)
+  expect(lines[2]).toMatch(/^2,Bu Rina,\d{2}\/\d{2}\/\d{4} \d{2}:\d{2},Belum menjawab,,,http/)
 })
