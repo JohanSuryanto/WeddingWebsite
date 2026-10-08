@@ -7,6 +7,7 @@ import { rsvpClosed } from '../../src/lib/rsvpDeadline'
 import { hasCoupleAccess, passcodePausedUntil, unlockCouple } from '../auth/coupleAccess'
 import { existingVisitorHash, ipHash, visitorHash } from '../auth/visitor'
 import { activeCoupleBySlug, coupleBySlug, coupleNames } from '../db/repos/couples'
+import { guestIdForCode } from '../db/repos/guests'
 import { readyUrls } from '../db/repos/media'
 import { PER_BROWSER, PER_IP, hit } from '../db/repos/rateLimits'
 import { addWish, listWishes, myRsvp, toWireWish, upsertRsvp } from '../db/repos/responses'
@@ -22,11 +23,14 @@ const rsvpBody = z.object({
   name: z.string().max(200),
   attendance: z.union([attendance, z.literal('')]),
   guestCount: z.number(),
+  /** `?g=` from a personal link; unknown or malformed codes are ignored. */
+  guestCode: z.string().max(20).optional(),
 })
 const wishBody = z.object({
   name: z.string().max(200),
   message: z.string().max(2000),
   attendance: attendance.optional(),
+  guestCode: z.string().max(20).optional(),
 })
 
 export function publicRoutes() {
@@ -69,7 +73,8 @@ export function publicRoutes() {
         const visitor = visitorHash(c)
         await hit(c.var.db, `wish:${row.id}:${visitor}`, PER_BROWSER)
         await hit(c.var.db, `ip:${row.id}:${ipHash(c)}`, PER_IP)
-        const wish = await addWish(c.var.db, row.id, visitor, body)
+        const guestId = await guestIdForCode(c.var.db, row.id, body.guestCode)
+        const wish = await addWish(c.var.db, row.id, visitor, body, guestId)
         return c.json({ wish: toWireWish(wish) }, 201)
       })
 
@@ -83,7 +88,8 @@ export function publicRoutes() {
         const visitor = visitorHash(c)
         await hit(c.var.db, `rsvp:${row.id}:${visitor}`, PER_BROWSER)
         await hit(c.var.db, `ip:${row.id}:${ipHash(c)}`, PER_IP)
-        const { rsvp, replaced } = await upsertRsvp(c.var.db, row.id, visitor, body)
+        const guestId = await guestIdForCode(c.var.db, row.id, body.guestCode)
+        const { rsvp, replaced } = await upsertRsvp(c.var.db, row.id, visitor, body, guestId)
         return c.json({ rsvp, replaced })
       })
 

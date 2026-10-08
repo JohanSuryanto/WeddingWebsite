@@ -1,4 +1,5 @@
-import { GUEST_NAME_MAX, parseGuestName } from '../../src/lib/guestName'
+import { buildInviteUrl } from '../../src/lib/inviteLink'
+import { GUEST_NAME_MAX, guestCodeOf, parseGuestCode, parseGuestName } from '../../src/lib/guestName'
 
 describe('parseGuestName (?inv=)', () => {
   it('returns null when absent', () => {
@@ -66,5 +67,24 @@ describe('parseGuestName (?inv=)', () => {
 
   it('no longer reads the old ?to= parameter', () => {
     expect(parseGuestName('?to=Budi')).toBeNull()
+  })
+})
+
+describe('guest link code (?g=)', () => {
+  it('is the first 8 characters of the guest id, read back from the link', () => {
+    const id = 'A1B2C3D4-0000-4000-8000-000000000000'
+    const url = buildInviteUrl('https://x.test/anisa-raka', 'Johan & Partner', '2', guestCodeOf(id))
+    expect(url).toBe('https://x.test/anisa-raka?inv=Johan+%26+Partner&t=2&g=a1b2c3d4')
+    const search = new URL(url).search
+    expect(parseGuestCode(search)).toBe('a1b2c3d4')
+    expect(parseGuestName(search)).toBe('Johan & Partner')
+    // A raw "&" in the name still stops before g=.
+    expect(parseGuestName('?inv=Johan & Partner&t=2&g=a1b2c3d4')).toBe('Johan & Partner')
+  })
+
+  it('is null when missing or malformed', () => {
+    expect(parseGuestCode('?inv=Budi&t=1')).toBeNull()
+    expect(parseGuestCode('?g=xyz')).toBeNull()
+    expect(parseGuestCode('?g=a1b2c3d4e5')).toBeNull()
   })
 })

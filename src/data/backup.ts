@@ -48,6 +48,7 @@ const rsvpSchema = z.object({
   name: z.string().min(1).max(60),
   attendance,
   guestCount: z.number().int().min(0).max(5),
+  guestId: z.string().nullable().optional(),
   submittedAt: z.string(),
   updatedAt: z.string(),
 })
@@ -59,6 +60,7 @@ const wishSchema = z.object({
   message: z.string().min(1).max(500),
   attendance: attendance.nullable().optional(),
   hidden: z.boolean().default(false),
+  guestId: z.string().nullable().optional(),
   createdAt: z.string(),
 })
 
@@ -115,6 +117,8 @@ export interface BackupRsvp {
   name: string
   attendance: Attendance
   guestCount: number
+  /** The saved guest whose link was used; files from before this have none. */
+  guestId?: string | null
   submittedAt: string
   updatedAt: string
 }
@@ -126,6 +130,7 @@ export interface BackupWish {
   message: string
   attendance?: Attendance | null
   hidden: boolean
+  guestId?: string | null
   createdAt: string
 }
 
@@ -240,6 +245,9 @@ export function restoredSlug(slug: string, taken: ReadonlySet<string>): string {
 export function planKeepBoth(bundle: CoupleBundle, takenSlugs: ReadonlySet<string>): CoupleBundle {
   const coupleId = newId()
   const idMap = new Map(bundle.media.map((m) => [m.id, newId()]))
+  // Replies keep pointing at the same guests, under their new ids.
+  const guestIds = new Map(bundle.guests.map((g) => [g.id, newId()]))
+  const newGuestId = (id: string | null | undefined) => (id && guestIds.get(id)) || null
   return {
     couple: {
       ...bundle.couple,
@@ -248,9 +256,9 @@ export function planKeepBoth(bundle: CoupleBundle, takenSlugs: ReadonlySet<strin
       content: rewriteMediaRefs(bundle.couple.content, idMap),
     },
     media: bundle.media.map((m) => ({ ...m, id: idMap.get(m.id)!, coupleId })),
-    rsvps: bundle.rsvps.map((r) => ({ ...r, id: newId(), coupleId })),
-    wishes: bundle.wishes.map((w) => ({ ...w, id: newId(), coupleId })),
-    guests: bundle.guests.map((g) => ({ ...g, id: newId(), coupleId })),
+    rsvps: bundle.rsvps.map((r) => ({ ...r, id: newId(), coupleId, guestId: newGuestId(r.guestId) })),
+    wishes: bundle.wishes.map((w) => ({ ...w, id: newId(), coupleId, guestId: newGuestId(w.guestId) })),
+    guests: bundle.guests.map((g) => ({ ...g, id: guestIds.get(g.id)!, coupleId })),
   }
 }
 

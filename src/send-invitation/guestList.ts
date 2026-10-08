@@ -1,5 +1,6 @@
 // The saved guest list behind the send-invitation page. The couple's page and the
 // admin's page reach the same list through different API paths.
+import type { Attendance } from '../content/types'
 import { apiFetch } from '../data/http/client'
 
 export interface Guest {
@@ -7,6 +8,10 @@ export interface Guest {
   name: string
   /** When a link or message was copied or sent; null = not yet. */
   sentAt: string | null
+  /** Their RSVP, if they answered through their own link. */
+  reply: { attendance: Attendance; guestCount: number } | null
+  /** They sent a wish through their own link. */
+  wished: boolean
 }
 
 export interface GuestListApi {

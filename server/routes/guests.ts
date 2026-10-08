@@ -3,7 +3,7 @@
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { parseGuestList } from '../../src/lib/inviteLink'
-import { GUEST_LIST_NAME_MAX, GUESTS_MAX, listGuests, saveGuests, setGuestSent, toWireGuest } from '../db/repos/guests'
+import { GUEST_LIST_NAME_MAX, GUESTS_MAX, listGuests, saveGuests, setGuestSent, withReplies } from '../db/repos/guests'
 import { readJson } from '../http/validate'
 import type { AppEnv } from '../types'
 
@@ -15,18 +15,20 @@ const sentBody = z.object({ sent: z.boolean() })
 export function guestRoutes(coupleIdOf: (c: Context<AppEnv>) => Promise<string>) {
   return new Hono<AppEnv>()
     .get('/', async (c) => {
-      const rows = await listGuests(c.var.db, await coupleIdOf(c))
-      return c.json({ guests: rows.map(toWireGuest) })
+      const coupleId = await coupleIdOf(c)
+      return c.json({ guests: await withReplies(c.var.db, coupleId, await listGuests(c.var.db, coupleId)) })
     })
     .put('/', async (c) => {
       const { names } = await readJson(c, saveBody)
       // Same cleanup as the page: one line per name, spaces collapsed, blanks dropped.
-      const rows = await saveGuests(c.var.db, await coupleIdOf(c), parseGuestList(names.join('\n')))
-      return c.json({ guests: rows.map(toWireGuest) })
+      const coupleId = await coupleIdOf(c)
+      const rows = await saveGuests(c.var.db, coupleId, parseGuestList(names.join('\n')))
+      return c.json({ guests: await withReplies(c.var.db, coupleId, rows) })
     })
     .patch('/:guestId', async (c) => {
       const { sent } = await readJson(c, sentBody)
-      const row = await setGuestSent(c.var.db, await coupleIdOf(c), c.req.param('guestId'), sent)
-      return c.json({ guest: toWireGuest(row) })
+      const coupleId = await coupleIdOf(c)
+      const row = await setGuestSent(c.var.db, coupleId, c.req.param('guestId'), sent)
+      return c.json({ guest: (await withReplies(c.var.db, coupleId, [row]))[0] })
     })
 }

@@ -84,6 +84,8 @@ export const rsvps = pgTable(
     name: text('name').notNull(),
     attendance: text('attendance', { enum: ['hadir', 'tidak_hadir'] }).notNull(),
     guestCount: smallint('guest_count').notNull(),
+    /** The saved guest whose link was used (`?g=`), if any. */
+    guestId: uuid('guest_id').references(() => guests.id, { onDelete: 'set null' }),
     submittedAt: ts('submitted_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -104,6 +106,7 @@ export const wishes = pgTable(
     name: text('name').notNull(),
     message: text('message').notNull(),
     attendance: text('attendance', { enum: ['hadir', 'tidak_hadir'] }),
+    guestId: uuid('guest_id').references(() => guests.id, { onDelete: 'set null' }),
     hidden: boolean('hidden').notNull().default(false),
     createdAt: ts('created_at').notNull().defaultNow(),
   },

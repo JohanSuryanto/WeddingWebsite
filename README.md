@@ -132,7 +132,7 @@ Full steps: [`specs/003-backend-data-persistence/quickstart.md`](specs/003-backe
 
 **After going live:**
 - `main` is production: every merge redeploys both sites. `main` is protected, so changes arrive through a pull request with all CI checks green.
-- **A PR that adds a migration** (a new file in `server/db/migrations`): after merging, run `npm run db:migrate` once with the Neon `DATABASE_URL` in your environment, like step 4. Migrations only add things, so the old code keeps working until the new deploy is live.
+- **A PR that adds a migration** (a new file in `server/db/migrations`): once its CI is green and **before merging**, run `npm run db:migrate` once with the Neon `DATABASE_URL` in your environment, like step 4. Then merge. Migrations only add things, so the live (old) code keeps working on the new schema, while new code deployed before its migration would fail.
 - Download a backup (**Cadangan → Unduh Cadangan**) regularly; Neon Free keeps only a short restore history.
 
 `vercel.json` sends `/api/*` to the function and every other unknown path to the app; a daily cron (`/api/cron/cleanup`) retries file deletions and removes unfinished uploads. The admin build also writes `index.html` (a copy of `admin.html`) so the same rule serves both sites. It also sets the security headers, including a **Content-Security-Policy** (scripts from the site only; images, audio and uploads also from Cloudinary). The e2e server (`scripts/serve.ts`) sends the same headers, and every e2e test fails on a CSP violation (`tests/fixtures.ts`), so a change that needs a new source has to update `vercel.json`.

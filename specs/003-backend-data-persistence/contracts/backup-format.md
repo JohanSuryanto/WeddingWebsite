@@ -16,8 +16,8 @@ This extends 002 `contracts/backup-format.md` (v1). The restore code reads **bot
       "size": 183245, "width": 1600, "height": 1067, "createdAt": "…",
       "data": "<base64>" }
   ],
-  "rsvps":  [ { "id": "…", "coupleId": "…", "name": "…", "attendance": "hadir", "guestCount": 2, "submittedAt": "…", "updatedAt": "…" } ],
-  "wishes": [ { "id": "…", "coupleId": "…", "name": "…", "message": "…", "attendance": null, "hidden": false, "createdAt": "…" } ],
+  "rsvps":  [ { "id": "…", "coupleId": "…", "name": "…", "attendance": "hadir", "guestCount": 2, "guestId": null, "submittedAt": "…", "updatedAt": "…" } ],
+  "wishes": [ { "id": "…", "coupleId": "…", "name": "…", "message": "…", "attendance": null, "hidden": false, "guestId": null, "createdAt": "…" } ],
   "guests": [ { "id": "…", "coupleId": "…", "name": "…", "position": 0, "sentAt": null } ]
 }
 ```

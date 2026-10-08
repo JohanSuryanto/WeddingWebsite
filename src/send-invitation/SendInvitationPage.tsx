@@ -12,7 +12,7 @@ import {
   parseGuestList,
   whatsappUrl,
 } from '../lib/inviteLink'
-import { GUEST_NAME_MAX } from '../lib/guestName'
+import { GUEST_NAME_MAX, guestCodeOf } from '../lib/guestName'
 import { resolveThemeId, ThemeProvider, themes } from '../themes'
 import type { ThemeId } from '../themes/types'
 import { matchGuests, type Guest, type GuestListApi } from './guestList'
@@ -97,7 +97,7 @@ function SendInvitation({
   const [listState, setListState] = useState<'loading' | 'ready' | 'saving' | 'error' | 'load-error'>(
     guestList ? 'loading' : 'ready',
   )
-  const [hideSent, setHideSent] = useState(false)
+  const [show, setShow] = useState<'all' | 'unsent' | 'noReply'>('all')
   const saveSeq = useRef(0)
 
   const theme = themes[themeId]
@@ -107,6 +107,7 @@ function SendInvitation({
   const previewName = rows[Math.min(previewIndex, rows.length - 1)] || null
   const matched = useMemo(() => matchGuests(names, guests), [names, guests])
   const sentCount = matched.filter((g) => g?.sentAt).length
+  const repliedCount = matched.filter((g) => g?.reply).length
   // Never save over a list that didn't load: that would wipe it.
   const dirty =
     !!guestList &&
@@ -156,12 +157,19 @@ function SendInvitation({
     return () => window.clearTimeout(id)
   }, [dirty, saveNow])
 
-  /** Marks row `i` as sent (or not); saves pending edits first so the guest exists. */
+  /**
+   * A row can be shared once its guest is saved, so the link carries their code
+   * (`?g=`) and the reply is matched. New names wait the moment the autosave takes:
+   * copying has to happen right in the click (Safari), so it can't wait for a save.
+   */
+  const canShare = (i: number) =>
+    !guestList || listState === 'load-error' || !names[i] || !!matched[i]
+
+  /** Marks row `i` as sent (or not). */
   async function markSent(i: number, sent = true) {
-    if (!guestList || !names[i]) return
+    const guest = guestList ? matched[i] : undefined
+    if (!guestList || !guest || !!guest.sentAt === sent) return
     try {
-      const guest = dirty || !matched[i] ? matchGuests(names, await saveNow())[i] : matched[i]
-      if (!guest || !!guest.sentAt === sent) return
       const updated = await guestList.setSent(guest.id, sent)
       setGuests((list) => list.map((g) => (g.id === updated.id ? updated : g)))
     } catch {
@@ -178,11 +186,12 @@ function SendInvitation({
     return () => robots.remove()
   }, [COUPLE])
 
-  const linkFor = (name: string) => buildInviteUrl(coupleUrl, name, theme.code)
-  const messageFor = (name: string) =>
+  const linkFor = (name: string, guest?: Guest) =>
+    buildInviteUrl(coupleUrl, name, theme.code, guest && guestCodeOf(guest.id))
+  const messageFor = (name: string, guest?: Guest) =>
     fillMessage(template, {
       nama: name || content.cover.defaultGuestLabel,
-      link: linkFor(name),
+      link: linkFor(name, guest),
       mempelai: COUPLE,
       tanggal: DATE,
     })
@@ -292,14 +301,20 @@ function SendInvitation({
                   <p className="font-bold text-text" data-testid="sent-count">
                     {sentCount} dari {names.length} tamu sudah dikirim
                   </p>
-                  <label className="flex min-h-11 cursor-pointer items-center gap-2 text-muted">
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 accent-[var(--theme-primary)]"
-                      checked={hideSent}
-                      onChange={(e) => setHideSent(e.target.checked)}
-                    />
-                    Sembunyikan yang sudah dikirim
+                  <p className="font-bold text-text" data-testid="reply-count">
+                    {repliedCount} sudah menjawab
+                  </p>
+                  <label className="flex items-center gap-2 text-muted">
+                    Tampilkan
+                    <select
+                      className="field min-h-11 w-auto py-1 text-sm"
+                      value={show}
+                      onChange={(e) => setShow(e.target.value as typeof show)}
+                    >
+                      <option value="all">Semua tamu</option>
+                      <option value="unsent">Belum dikirim</option>
+                      <option value="noReply">Belum menjawab</option>
+                    </select>
                   </label>
                 </div>
               )}
@@ -308,9 +323,10 @@ function SendInvitation({
                   <button
                     type="button"
                     className="btn-outline text-sm"
+                    disabled={!names.every((_, i) => canShare(i))}
                     onClick={() =>
                       copy(
-                        names.map((n) => `${n}: ${linkFor(n)}`).join('\n'),
+                        names.map((n, i) => `${n}: ${linkFor(n, matched[i])}`).join('\n'),
                         'Semua link tersalin!',
                       )
                     }
@@ -321,9 +337,12 @@ function SendInvitation({
               )}
               <ul className="space-y-3" data-testid="invite-rows">
                 {rows.map((name, i) => {
-                  const sentAt = guestList ? matched[i]?.sentAt : null
-                  if (hideSent && sentAt) return null
-                  const link = linkFor(name)
+                  const guest = guestList ? matched[i] : undefined
+                  const sentAt = guest?.sentAt
+                  if (show === 'unsent' && sentAt) return null
+                  if (show === 'noReply' && guest?.reply) return null
+                  const ready = canShare(i)
+                  const link = linkFor(name, guest)
                   const previewing = i === Math.min(previewIndex, rows.length - 1)
                   return (
                     <li
@@ -355,6 +374,21 @@ function SendInvitation({
                             </button>
                           </span>
                         )}
+                        {guest?.reply && (
+                          <span
+                            className="rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-contrast"
+                            data-testid="reply-badge"
+                          >
+                            {guest.reply.attendance === 'hadir'
+                              ? `Hadir · ${guest.reply.guestCount} orang`
+                              : 'Tidak hadir'}
+                          </span>
+                        )}
+                        {guest?.wished && (
+                          <span className="text-xs font-bold text-muted" data-testid="wish-badge">
+                            Mengirim ucapan
+                          </span>
+                        )}
                         {isTooLong(name) && (
                           <span className="text-xs font-bold text-[#a33a50]">
                             Lebih dari {GUEST_NAME_MAX} karakter, akan dipotong
@@ -379,6 +413,8 @@ function SendInvitation({
                         <button
                           type="button"
                           className="btn-primary px-4 py-2 text-sm"
+                          disabled={!ready}
+                          title={ready ? undefined : 'Menyimpan nama tamu…'}
                           onClick={() => {
                             void copy(link, 'Link tersalin!')
                             void markSent(i)
@@ -389,18 +425,21 @@ function SendInvitation({
                         <button
                           type="button"
                           className="btn-outline text-sm"
+                          disabled={!ready}
+                          title={ready ? undefined : 'Menyimpan nama tamu…'}
                           onClick={() => {
-                            void copy(messageFor(name), 'Pesan tersalin!')
+                            void copy(messageFor(name, guest), 'Pesan tersalin!')
                             void markSent(i)
                           }}
                         >
                           Salin Pesan
                         </button>
                         <a
-                          href={whatsappUrl(messageFor(name))}
+                          href={ready ? whatsappUrl(messageFor(name, guest)) : undefined}
+                          aria-disabled={!ready || undefined}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn-outline text-sm"
+                          className={`btn-outline text-sm ${ready ? '' : 'pointer-events-none opacity-50'}`}
                           onClick={() => void markSent(i)}
                         >
                           <svg
