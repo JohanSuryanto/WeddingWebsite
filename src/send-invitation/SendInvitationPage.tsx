@@ -603,6 +603,24 @@ function SendInvitation({
                 </div>
               </div>
             </details>
+
+            <section aria-labelledby="slideshow-heading" className="card p-5 sm:p-6">
+              <h2 id="slideshow-heading" className="font-heading text-xl text-text">
+                Tayangan ucapan di acara
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Tampilkan ucapan para tamu satu per satu di layar TV atau proyektor saat acara.
+                Ucapan baru langsung muncul; ucapan yang disembunyikan admin tidak ditampilkan.
+              </p>
+              <a
+                href={`${coupleUrl}/ucapan`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-outline mt-3 text-sm"
+              >
+                Buka tayangan ucapan
+              </a>
+            </section>
           </div>
 
           <aside aria-label="Tampilan undangan" className="lg:sticky lg:top-6">
